@@ -3,98 +3,36 @@
  * Implements a reactive state store with listeners and a real-time data simulator.
  */
 
-// Initial state template
+import {
+  INITIAL_SETTINGS,
+  INITIAL_TELEMETRY,
+  INITIAL_ZONES,
+  DEFAULT_INCIDENTS,
+  INITIAL_CHAT_GREETING
+} from './config.js';
+
+// Initial state template constructed from configuration constants
 const initialState = {
-  // Application Settings
   settings: {
-    geminiApiKey: typeof localStorage !== 'undefined' ? localStorage.getItem('smadiums_api_key') || '' : '',
-    theme: 'dark', // 'dark' | 'light' | 'high-contrast'
-    textSize: 100, // percentage 80% to 150%
-    dyslexicFont: false,
-    soundFeedback: false,
-    selectedLanguage: 'en'
+    ...INITIAL_SETTINGS,
+    geminiApiKey: typeof localStorage !== 'undefined' ? localStorage.getItem('smadiums_api_key') || '' : ''
   },
-  
-  // Current Active Persona
-  activePersona: 'staff', // 'staff' | 'fan'
-  
-  // Stadium Live Telemetry
-  telemetry: {
-    crowdDensity: 68, // average percentage
-    avgGateWaitTime: 18, // minutes
-    avgConcessionWaitTime: 12, // minutes
-    sustainabilityScore: 84, // percentage
-    stadiumOccupancy: 78240, // out of 82500
-    greenEnergyUsage: 72, // % solar/wind
-    waterSavedLitres: 142500,
-    wasteRecyclingRate: 88, // % diverted from landfill
-  },
-
-  // Interactive Zones & Map Statuses
-  zones: {
-    gateA: { name: 'Gate A (North)', waitTime: 15, status: 'optimal', crowdDensity: 45 },
-    gateB: { name: 'Gate B (East)', waitTime: 22, status: 'warning', crowdDensity: 70 },
-    gateC: { name: 'Gate C (South)', waitTime: 52, status: 'critical', crowdDensity: 92 },
-    gateD: { name: 'Gate D (West)', waitTime: 12, status: 'optimal', crowdDensity: 38 },
-    concession1: { name: 'North Eats (Concession 1)', waitTime: 8, status: 'optimal', queueLength: 12 },
-    concession2: { name: 'Copa Snacks (Concession 2)', waitTime: 18, status: 'warning', queueLength: 32 },
-    concession3: { name: 'Azteca Grill (Concession 3)', waitTime: 25, status: 'warning', queueLength: 48 },
-    concession4: { name: 'Green Bites (Concession 4)', waitTime: 5, status: 'optimal', queueLength: 6 },
-    sector100: { name: 'Lower Tier (Sectors 100-140)', status: 'warning', crowdDensity: 75 },
-    sector200: { name: 'Middle Club Tier (Sectors 200-260)', status: 'optimal', crowdDensity: 55 },
-    sector300: { name: 'Upper Tier (Sectors 300-380)', status: 'critical', crowdDensity: 90 },
-    transitHub: { name: 'East Transit Metro Shuttle', waitTime: 25, status: 'warning', crowdDensity: 82 }
-  },
-
-  // Active Incidents & AI Action Plans
-  incidents: [
-    {
-      id: 'inc_gate_c',
-      zone: 'gateC',
-      title: 'Gate C Ticket Scanner Outage',
-      description: 'Scanner hardware malfunction has reduced gate capacity by 50%. Queues are spilling into the outer security perimeter. Wait time is currently 52 minutes.',
-      severity: 'critical',
-      timestamp: new Date().toLocaleTimeString(),
-      status: 'pending', // 'pending' | 'drafting' | 'has_plan' | 'resolved'
-      actionPlan: null
-    },
-    {
-      id: 'inc_medical_108',
-      zone: 'sector100',
-      title: 'Sector 108 Medical Report',
-      description: 'Volunteer reports an elderly spectator suffering from heat exhaustion. Patient is resting in Sector 108, Row 14, Seat 8.',
-      severity: 'warning',
-      timestamp: new Date().toLocaleTimeString(),
-      status: 'pending',
-      actionPlan: null
-    },
-    {
-      id: 'inc_transit_delay',
-      zone: 'transitHub',
-      title: 'Metro Link Shuttle Delay',
-      description: 'Traffic congestion on the external loop road is causing shuttle bus delays. Commuters queueing for trains are experiencing 25-minute wait times.',
-      severity: 'warning',
-      timestamp: new Date().toLocaleTimeString(),
-      status: 'pending',
-      actionPlan: null
-    }
-  ],
-
-  // System Event Logs
+  activePersona: 'staff',
+  telemetry: { ...INITIAL_TELEMETRY },
+  zones: { ...INITIAL_ZONES },
+  incidents: DEFAULT_INCIDENTS.map(inc => ({
+    ...inc,
+    timestamp: new Date().toLocaleTimeString()
+  })),
   logs: [
     { time: new Date().toLocaleTimeString(), message: 'Smadiums operations dashboard initialized.', type: 'info' },
     { time: new Date().toLocaleTimeString(), message: 'Connected to stadium sensor grid telemetry.', type: 'success' },
     { time: new Date().toLocaleTimeString(), message: 'Warning alert raised: Gate C scanner degradation.', type: 'error' }
   ],
-
-  // Fan Persona Chat History
   chatHistory: [
     {
-      id: 'msg_init',
-      sender: 'ai',
-      text: 'Hello! Welcome to the FIFA World Cup 2026 Stadium Helper. I can assist you with finding your seat, checking concession queues, multilingual queries, and accessible services. How can I help you today?',
-      timestamp: new Date().toLocaleTimeString(),
-      language: 'en'
+      ...INITIAL_CHAT_GREETING,
+      timestamp: new Date().toLocaleTimeString()
     }
   ]
 };
