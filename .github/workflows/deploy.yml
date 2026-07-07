@@ -1,0 +1,54 @@
+name: Deploy Smadiums to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: YOUR_GCP_PROJECT_ID # Replace with your Google Cloud Project ID
+  SERVICE_NAME: smadiums-hub
+  REGION: us-central1
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Since we have zero external runtime dependencies, we run tests directly:
+      - name: Execute Verification Tests
+        run: node tests/run-tests.js
+
+      # The following steps are ready for authentication and deployment.
+      # To activate them, configure GCP Secrets (GCP_SA_KEY) in GitHub settings.
+      #
+      # - name: Authenticate to GCP
+      #   uses: google-github-actions/auth@v2
+      #   with:
+      #     credentials_json: ${{ secrets.GCP_SA_KEY }}
+      #
+      # - name: Setup Cloud SDK
+      #   uses: google-github-actions/setup-gcloud@v2
+      #
+      # - name: Configure Docker authentication
+      #   run: gcloud auth configure-docker us-central1-docker.pkg.dev
+      #
+      # - name: Build and Push Docker Image
+      #   run: |
+      #     docker build -t us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/app:${{ github.sha }} .
+      #     docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/app:${{ github.sha }}
+      #
+      # - name: Deploy to Cloud Run
+      #   uses: google-github-actions/deploy-cloudrun@v2
+      #   with:
+      #     service: ${{ env.SERVICE_NAME }}
+      #     region: ${{ env.REGION }}
+      #     image: us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/app:${{ github.sha }}
+      #     flags: '--allow-unauthenticated'

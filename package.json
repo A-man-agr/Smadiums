@@ -1,0 +1,12 @@
+{
+  "name": "smadiums-fifa2026-operations",
+  "version": "1.0.0",
+  "description": "FIFA World Cup 2026 Stadium Operations & Fan Experience Hub",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/run-tests.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

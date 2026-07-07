@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smadiums - FIFA World Cup 2026 Stadium Operations & Fan Experience Hub</title>
+  <meta name="description" content="GenAI-enabled solution enhancing stadium operations, crowd navigation, and tournament experiences for FIFA World Cup 2026.">
+  <link rel="stylesheet" href="style.css">
+  <!-- Load modern sleek fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono&family=Open+Dyslexic&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark persona-staff">
+
+  <!-- A11y skip link -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Header Section -->
+  <header class="app-header">
+    <div class="header-logo-container">
+      <span class="fifa-brand-pill">FIFA World Cup 2026</span>
+      <h1 class="header-title">SMADIUMS</h1>
+      <span class="subtle-status">Sensor Grid Active</span>
+    </div>
+
+    <!-- Toggle Persona Controller -->
+    <div class="persona-switch-wrapper">
+      <label for="persona-toggle" class="persona-switch">
+        <input type="checkbox" id="persona-toggle" aria-label="Toggle between Staff and Fan mode">
+        <span class="switch-slider"></span>
+      </label>
+      <span id="persona-label" class="persona-switch-label">Operations Control Center</span>
+    </div>
+
+    <!-- Accessibility Bar -->
+    <div class="a11y-bar">
+      <div class="a11y-control">
+        <label for="theme-select" class="sr-only">Theme Mode</label>
+        <select id="theme-select" title="Change Theme Mode">
+          <option value="dark">Dark Theme</option>
+          <option value="light">Light Theme</option>
+          <option value="high-contrast">High Contrast</option>
+        </select>
+      </div>
+
+      <div class="a11y-control slider-control">
+        <label id="label-text-size" for="text-size-slider">Text Size</label>
+        <input type="range" id="text-size-slider" min="80" max="150" value="100" aria-labelledby="label-text-size">
+        <span id="text-size-value">100%</span>
+      </div>
+
+      <div class="a11y-control checkbox-control">
+        <input type="checkbox" id="dyslexic-toggle">
+        <label for="dyslexic-toggle">Dyslexia Font</label>
+      </div>
+      
+      <button class="settings-btn" id="settings-btn" aria-label="Configure API Settings" title="Settings">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main id="main-content" class="app-main">
+    
+    <!-- Unified Telemetry Banner -->
+    <section class="telemetry-grid" aria-label="Live Stadium Metrics">
+      <div class="telemetry-card" id="card_occupancy">
+        <h3>Occupancy</h3>
+        <p class="telemetry-value" id="tele_occupancy">0</p>
+        <span class="telemetry-unit">/ 82,500 Spectators</span>
+      </div>
+      <div class="telemetry-card" id="card_gate_wait">
+        <h3>Avg Gate Wait</h3>
+        <p class="telemetry-value" id="tele_gate_wait">0m</p>
+        <span class="telemetry-unit">Optimal &lt; 20m</span>
+      </div>
+      <div class="telemetry-card" id="card_concession_wait">
+        <h3>Concessions Wait</h3>
+        <p class="telemetry-value" id="tele_concession_wait">0m</p>
+        <span class="telemetry-unit">Halftime peak active</span>
+      </div>
+      <div class="telemetry-card" id="card_energy">
+        <h3>Green Power</h3>
+        <p class="telemetry-value" id="tele_energy">0%</p>
+        <span class="telemetry-unit">Solar & Wind feeds</span>
+      </div>
+      <div class="telemetry-card" id="card_water">
+        <h3>Water Conserved</h3>
+        <p class="telemetry-value" id="tele_water">0 L</p>
+        <span class="telemetry-unit">Low-flow vacuum valves</span>
+      </div>
+      <div class="telemetry-card" id="card_recycle">
+        <h3>Recycling Rate</h3>
+        <p class="telemetry-value" id="tele_recycle">0%</p>
+        <span class="telemetry-unit">FIFA green target: 90%</span>
+      </div>
+    </section>
+
+    <!-- SECTION 1: OPERATIONS VIEW (Default Staff view) -->
+    <div id="staff-view" class="persona-view grid-layout">
+      
+      <!-- Left Column: SVG Map -->
+      <section class="view-panel panel-map" aria-labelledby="map-heading">
+        <div class="panel-header">
+          <div>
+            <h2 id="map-heading">Interactive Stadium Sensor Grid</h2>
+            <p class="panel-subheader">Click any zone to inspect real-time queue states and alerts.</p>
+          </div>
+          <div class="map-view-controls">
+            <button class="ops-btn secondary-ops-btn tiny-btn active" id="btn-view-3d" title="Switch to 3D Holographic view">3D Projection</button>
+            <button class="ops-btn secondary-ops-btn tiny-btn" id="btn-view-2d" title="Switch to Flat 2D layout">2D Flat</button>
+          </div>
+        </div>
+        <div class="map-container view-3d" id="map-container">
+          
+          <!-- Stadium SVG Map Definition -->
+          <svg id="stadium-svg" viewBox="0 0 600 400" class="stadium-svg-grid" aria-label="Interactive Stadium Map">
+            <defs>
+              <pattern id="grid-dots" width="20" height="20" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="1.5" fill="rgba(255,255,255,0.06)"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid-dots)" />
+
+            <!-- Parking perimeter -->
+            <rect x="15" y="15" width="570" height="370" rx="35" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+            
+            <!-- Outside Subway Pathway Line -->
+            <path d="M 585 350 L 520 350 L 400 350" fill="none" stroke="rgba(58, 125, 233, 0.2)" stroke-width="4" stroke-dasharray="5 5" />
+            
+            <!-- STADIUM SECTORS (Interactive layers) -->
+            <!-- Sector 300 (Upper Bowl) -->
+            <rect x="90" y="70" width="420" height="260" rx="30" data-zone="sector300" class="map-interactive map-sector zone-critical" tabindex="0">
+              <title>Sector 300 (Upper Deck)</title>
+            </rect>
+            
+            <!-- Sector 100/200 (Lower Bowl) -->
+            <rect x="140" y="110" width="320" height="180" rx="20" data-zone="sector100" class="map-interactive map-sector zone-warning" tabindex="0">
+              <title>Sector 100 (Lower Deck)</title>
+            </rect>
+            
+            <!-- Club Suite Tier 200 -->
+            <rect x="175" y="135" width="250" height="130" rx="15" data-zone="sector200" class="map-interactive map-sector zone-optimal" tabindex="0">
+              <title>Sector 200 (Club Suites)</title>
+            </rect>
+
+            <!-- Center Pitch Field -->
+            <rect x="220" y="165" width="160" height="70" class="pitch-green" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+            <circle cx="300" cy="200" r="18" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+            <line x1="300" y1="165" x2="300" y2="235" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+
+            <!-- GATES (Circles on perimeter border) -->
+            <!-- Gate A: North -->
+            <g class="map-indicator">
+              <circle cx="300" cy="30" r="16" data-zone="gateA" class="map-interactive zone-optimal" tabindex="0">
+                <title>Gate A</title>
+              </circle>
+              <text x="300" y="34" class="map-label">A</text>
+            </g>
+            
+            <!-- Gate B: East -->
+            <g class="map-indicator">
+              <circle cx="550" cy="200" r="16" data-zone="gateB" class="map-interactive zone-warning" tabindex="0">
+                <title>Gate B</title>
+              </circle>
+              <text x="550" y="204" class="map-label">B</text>
+            </g>
+            
+            <!-- Gate C: South -->
+            <g class="map-indicator">
+              <circle cx="300" cy="370" r="16" data-zone="gateC" class="map-interactive zone-critical" tabindex="0">
+                <title>Gate C</title>
+              </circle>
+              <text x="300" y="374" class="map-label">C</text>
+            </g>
+            
+            <!-- Gate D: West -->
+            <g class="map-indicator">
+              <circle cx="50" cy="200" r="16" data-zone="gateD" class="map-interactive zone-optimal" tabindex="0">
+                <title>Gate D</title>
+              </circle>
+              <text x="50" y="204" class="map-label">D</text>
+            </g>
+
+            <!-- CONCESSIONS (Small squares inside outer halls) -->
+            <g class="map-food-block">
+              <!-- Concession 1 -->
+              <rect x="100" y="80" width="22" height="22" rx="4" data-zone="concession1" class="map-interactive zone-optimal" tabindex="0">
+                <title>Concession 1</title>
+              </rect>
+              <text x="111" y="95" class="map-sublabel">F1</text>
+              
+              <!-- Concession 2 -->
+              <rect x="478" y="80" width="22" height="22" rx="4" data-zone="concession2" class="map-interactive zone-warning" tabindex="0">
+                <title>Concession 2</title>
+              </rect>
+              <text x="489" y="95" class="map-sublabel">F2</text>
+              
+              <!-- Concession 3 -->
+              <rect x="478" y="298" width="22" height="22" rx="4" data-zone="concession3" class="map-interactive zone-warning" tabindex="0">
+                <title>Concession 3</title>
+              </rect>
+              <text x="489" y="313" class="map-sublabel">F3</text>
+              
+              <!-- Concession 4 -->
+              <rect x="100" y="298" width="22" height="22" rx="4" data-zone="concession4" class="map-interactive zone-optimal" tabindex="0">
+                <title>Concession 4</title>
+              </rect>
+              <text x="111" y="313" class="map-sublabel">F4</text>
+            </g>
+
+            <!-- East Transit Metro Shuttle Hub -->
+            <g class="map-transit-block">
+              <rect x="515" y="325" width="65" height="42" rx="6" data-zone="transitHub" class="map-interactive zone-warning" tabindex="0">
+                <title>East Transit Metro Link Hub</title>
+              </rect>
+              <text x="548" y="343" class="map-label">METRO</text>
+              <text x="548" y="357" class="map-sublabel-bold">Shuttle</text>
+            </g>
+          </svg>
+          
+        </div>
+        <div class="map-legend">
+          <span class="legend-item"><span class="legend-color optimal"></span> Optimal</span>
+          <span class="legend-item"><span class="legend-color warning"></span> Warning</span>
+          <span class="legend-item"><span class="legend-color critical"></span> Critical / Bottleneck</span>
+        </div>
+      </section>
+
+      <!-- Middle Column: Incident Dispatch & Decision Support -->
+      <section class="view-panel panel-alerts" aria-labelledby="alerts-heading">
+        <div class="panel-header">
+          <h2 id="alerts-heading">GenAI Tactical Dispatch Center</h2>
+          <p class="panel-subheader">Review active sensor alarms. Prompt GenAI to generate targeted action plans.</p>
+        </div>
+        <div class="incidents-container" id="incidents-list">
+          <!-- Dynamic cards injected here -->
+        </div>
+      </section>
+
+      <!-- Right Column: Sustainability & Event Logs -->
+      <section class="view-panel panel-side" aria-labelledby="eco-heading">
+        <div class="panel-header">
+          <h2 id="eco-heading">Eco-Optimizations</h2>
+          <button class="ops-btn secondary-ops-btn tiny-btn" id="refresh-eco-btn">↻ Analyze</button>
+        </div>
+        <div class="eco-advisory-box" id="eco-recommendations">
+          <p class="eco-advisory-prompt">Click "Analyze" to prompt the AI Sustainability Advisor using live crowd telemetry.</p>
+        </div>
+
+        <div class="panel-header logs-header">
+          <h2>Stadium Telemetry Stream</h2>
+        </div>
+        <div class="ops-logs-terminal" id="ops-logs" aria-label="Terminal Logs">
+          <!-- Dynamically populated logging lines -->
+        </div>
+      </section>
+
+    </div>
+
+    <!-- SECTION 2: FAN PORTAL VIEW (Toggled, hidden on load) -->
+    <div id="fan-view" class="persona-view grid-layout hidden">
+      
+      <!-- Left Column: Wayfinder / Queue Checker -->
+      <section class="view-panel panel-navigation" aria-labelledby="nav-heading">
+        <div class="panel-header">
+          <h2 id="nav-heading">Smart Seat & Concessions Guide</h2>
+          <p class="panel-subheader">Plan pathways to food counters or exit transit gates while avoiding crowd congestion.</p>
+        </div>
+        
+        <div class="wayfinding-card">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="nav-from">Current Location</label>
+              <select id="nav-from">
+                <option value="gateA">Gate A (North Entrance)</option>
+                <option value="gateB" selected>Gate B (East Entrance)</option>
+                <option value="gateC">Gate C (South Entrance)</option>
+                <option value="gateD">Gate D (West Entrance)</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="nav-to">Target Destination</label>
+              <select id="nav-to">
+                <option value="concession1">North Eats (Concession 1 - Fast Foods)</option>
+                <option value="concession2">Copa Snacks (Concession 2 - Snacks)</option>
+                <option value="concession3">Azteca Grill (Concession 3 - Mexican)</option>
+                <option value="concession4" selected>Green Bites (Concession 4 - Vegan/Healthy)</option>
+                <option value="transitHub">East Transit Link (Metro Bus Shuttle)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div id="nav-route-output" class="route-directions-box">
+            <!-- Directions computed locally or injected by code -->
+          </div>
+        </div>
+
+        <div class="wayfinding-map-tip">
+          <p>💡 **Quick Select**: Click on any Gate (A/B/C/D) or Food Court (F1/F2/F3/F4) in the interactive map above to quickly set it as your target destination!</p>
+        </div>
+      </section>
+
+      <!-- Right Column: AI Assistant chat -->
+      <section class="view-panel panel-assistant" aria-labelledby="assistant-heading">
+        <div class="panel-header">
+          <h2 id="assistant-heading">FIFA 2026 Multilingual GenAI Assistant</h2>
+          <p class="panel-subheader">Speech-enabled support for accessibility services, seating directions, and transit.</p>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="chat-container">
+          <div class="chat-messages-pane" id="chat-messages" aria-live="polite">
+            <!-- Injected chat bubbles -->
+          </div>
+
+          <!-- Suggested queries -->
+          <div class="chat-suggestions">
+            <button class="suggest-btn" data-query="Where is the nearest wheelchair elevator?">♿ Accessibility Lift</button>
+            <button class="suggest-btn" data-query="Which concession stand has the shortest line?">🍔 Food Queue Times</button>
+            <button class="suggest-btn" data-query="What is the fastest transit route to the Metro station?">🚍 Metro Shuttles</button>
+            <button class="suggest-btn" data-query="¿Dónde se encuentran los baños accesibles?">🇪🇸 Baños accesibles (ES)</button>
+          </div>
+
+          <!-- Input form -->
+          <form class="chat-input-bar" id="chat-form">
+            <input type="text" id="chat-input" placeholder="Ask a question (e.g. 'wheelchair routing' or in Spanish/French)..." aria-label="Chat input message">
+            
+            <button type="button" id="speak-input-btn" class="speak-btn" aria-label="Dictate message using voice" title="Voice Dictation">
+              🎙️
+            </button>
+            
+            <button type="submit" class="send-btn" aria-label="Send message">Send ✈</button>
+          </form>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Developer panel & Test runner (Collapsible footer) -->
+  <footer class="dev-console-panel" id="dev-panel">
+    <button class="dev-panel-toggle" id="dev-panel-toggle" aria-expanded="false" aria-controls="dev-panel-content">
+      🔧 Developer Sandbox & Validation Suite
+    </button>
+    <div class="dev-panel-content" id="dev-panel-content">
+      <div class="dev-grid">
+        <!-- Test suite column -->
+        <div class="dev-column">
+          <h3>Automated Security & Operations Test Runner</h3>
+          <div class="dev-actions">
+            <button class="ops-btn success-ops-btn" id="run-tests-btn">▶ Run Validation Tests</button>
+          </div>
+          <ul class="test-results-list" id="test-results-list">
+            <li class="test-placeholder">No test logs. Click "Run Validation Tests" to execute assertions.</li>
+          </ul>
+        </div>
+        
+        <!-- Simulation controls column -->
+        <div class="dev-column">
+          <h3>Sensor Grid Incident Simulator</h3>
+          <p>Diverge operations levels by injecting synthetic stadium sensor anomalies to trigger GenAI response actions.</p>
+          <div class="dev-sim-buttons">
+            <button class="ops-btn warning-ops-btn" id="sim-gate-bottleneck">⚠️ Sim Gate B Congestion</button>
+            <button class="ops-btn error-ops-btn" id="sim-medical-incident">🚨 Sim Sector 324 Crowd Block</button>
+            <button class="ops-btn error-ops-btn" id="sim-transit-delay">🚨 Sim Metro Platform Gridlock</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-heading">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="settings-heading">GenAI Core Settings</h2>
+        <button class="close-modal-btn" id="close-settings" aria-label="Close modal">×</button>
+      </div>
+      <form id="settings-form">
+        <div class="form-group">
+          <label for="api-key-input">Gemini API Key (Optional)</label>
+          <input type="password" id="api-key-input" placeholder="Enter Gemini API key for live responses...">
+          <small class="form-help-text">Leave blank to use the offline mock GenAI engine which responds with high-fidelity FIFA Cup 2026 scenarios instantly.</small>
+        </div>
+        <div class="form-group row-group">
+          <input type="checkbox" id="sound-toggle">
+          <label for="sound-toggle">Audio Speech Feedback (TTS confirmation)</label>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="ops-btn success-ops-btn">Save Configurations</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bootstrapping scripts -->
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
