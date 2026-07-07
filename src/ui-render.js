@@ -1,18 +1,23 @@
 /**
- * UI Rendering and Interaction Module for Smadiums.
- * Controls DOM construction, SVG map updates, and accessibility states.
+ * UI Rendering and Interaction Coordinator Module for Smadiums.
+ * Controls DOM caching, view switches, and coordinates sub-components rendering.
  * @module ui-render
  */
 
-import { getState, resolveIncident, updateIncident, addChatMessage, addLog, saveSettings, updateState, addIncident } from './state.js';
-import { sanitizeAIResponse, escapeHTML, detectPromptInjection } from './sanitizer.js';
-import { generateContent } from './ai-client.js';
-import { runAllTests } from '../tests/unit-tests.js';
+import { getState, addLog, saveSettings, updateState, addIncident } from './state.js';
+import { escapeHTML } from './sanitizer.js';
 import { setupMapListeners, updateSVGMapColors } from './ui-map.js';
 import { renderChat, speakTextTextToSpeech, handleVoiceInput } from './ui-chat.js';
 import { debounce, playTone, announceToScreenReader } from './utils.js';
 
-/** Cached DOM element references, populated once during initUI(). */
+// Sub-component imports for modular architecture
+import { renderIncidents } from './ui-incidents.js';
+import { renderVolunteers } from './ui-volunteers.js';
+import { generateSustainabilityPlan, setupCarbonCalculator } from './ui-sustainability.js';
+import { handleRunTests } from './ui-testing.js';
+import { calculateWayfindingRoute } from './ui-wayfinding.js';
+
+/** Cached DOM element references. */
 const el = {};
 
 /**
@@ -100,11 +105,13 @@ export function initUI() {
   bindChatControls();
   bindSimulatorTriggers();
   applyInitialAccessibilityState();
-  bindCarbonCalculator();
+  
+  // Set up sub-component controllers
+  setupCarbonCalculator(el.calcModeSelect, el.ecoSavedVal, announceToScreenReader);
 }
 
 // ---------------------------------------------------------------------------
-// Event binding helpers (extracted from monolithic initUI for readability)
+// Event binding helpers
 // ---------------------------------------------------------------------------
 
 /** Bind the staff/fan persona toggle switch. */
@@ -190,12 +197,18 @@ function bindDevPanel() {
     el.devToggle.setAttribute('aria-expanded', isExpanded);
   });
 
-  el.runTestsBtn.addEventListener('click', handleRunTests);
+  el.runTestsBtn.addEventListener('click', () => {
+    handleRunTests(el.testResultsList, el.runTestsBtn);
+  });
 }
 
 /** Bind map view toggle and zone click routing. */
 function bindMapControls() {
-  setupMapListeners(calculateWayfindingRoute, el.navToSelect, announceToScreenReader);
+  setupMapListeners(
+    () => calculateWayfindingRoute(getState(), el.navFromSelect.value, el.navToSelect.value, el.navRouteOutput, announceToScreenReader),
+    el.navToSelect,
+    announceToScreenReader
+  );
 
   if (el.btnView3d && el.btnView2d && el.mapContainer) {
     el.btnView3d.addEventListener('click', () => {
@@ -241,7 +254,9 @@ function bindMapControls() {
 
 /** Bind chat form submission, voice input, and suggestion chips. */
 function bindChatControls() {
-  el.refreshEcoBtn.addEventListener('click', generateSustainabilityPlan);
+  el.refreshEcoBtn.addEventListener('click', () => {
+    generateSustainabilityPlan(getState(), el.ecoContainer);
+  });
   el.chatForm.addEventListener('submit', handleChatSubmit);
 
   el.speakInputBtn.addEventListener('click', () => {
@@ -255,8 +270,11 @@ function bindChatControls() {
     });
   });
 
-  el.navFromSelect.addEventListener('change', calculateWayfindingRoute);
-  el.navToSelect.addEventListener('change', calculateWayfindingRoute);
+  const triggerWayfinding = () => {
+    calculateWayfindingRoute(getState(), el.navFromSelect.value, el.navToSelect.value, el.navRouteOutput, announceToScreenReader);
+  };
+  el.navFromSelect.addEventListener('change', triggerWayfinding);
+  el.navToSelect.addEventListener('change', triggerWayfinding);
 }
 
 /** Bind simulator trigger buttons in the developer panel. */
@@ -295,24 +313,6 @@ function applyInitialAccessibilityState() {
   updateAccessibilityThemeClasses(state.settings.theme);
   document.documentElement.style.setProperty('--base-font-size', `${state.settings.textSize}%`);
   if (state.settings.dyslexicFont) el.body.classList.add('font-dyslexic');
-}
-
-/** Bind carbon calculator travel mode selector. */
-function bindCarbonCalculator() {
-  if (!el.calcModeSelect || !el.ecoSavedVal) return;
-
-  const CARBON_SAVINGS = {
-    metro: '1.2 kg CO₂',
-    rideshare: '0.1 kg CO₂',
-    walking: '2.4 kg CO₂ (Zero Carbon)'
-  };
-
-  el.calcModeSelect.addEventListener('change', () => {
-    const savedText = CARBON_SAVINGS[el.calcModeSelect.value] || '1.2 kg CO₂';
-    el.ecoSavedVal.textContent = savedText;
-    playTone(660, 0.05);
-    announceToScreenReader(`Recalculated carbon offset. Saved ${savedText}.`);
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -355,42 +355,6 @@ function trapFocus(modal) {
 }
 
 // ---------------------------------------------------------------------------
-// Test runner UI
-// ---------------------------------------------------------------------------
-
-/**
- * Run tests and display results in the developer panel.
- */
-function handleRunTests() {
-  playTone(880, 0.1);
-  el.testResultsList.innerHTML = '<li class="loading">Executing test assertions...</li>';
-
-  setTimeout(async () => {
-    const results = await runAllTests();
-    el.testResultsList.innerHTML = '';
-
-    let passedCount = 0;
-    results.forEach(res => {
-      const li = document.createElement('li');
-      li.className = `test-item ${res.status}`;
-
-      const badge = res.status === 'passed' ? 'PASS' : 'FAIL';
-      const statusIcon = res.status === 'passed' ? '✅' : '❌';
-
-      li.innerHTML = `
-        <span class="test-status-badge">${statusIcon} ${badge}</span>
-        <span class="test-name">${escapeHTML(res.name)}</span>
-        ${res.error ? `<div class="test-error">${escapeHTML(res.error)}</div>` : ''}
-      `;
-      el.testResultsList.appendChild(li);
-      if (res.status === 'passed') passedCount++;
-    });
-
-    el.runTestsBtn.textContent = `Run Tests (${passedCount}/${results.length} Passed)`;
-  }, 300);
-}
-
-// ---------------------------------------------------------------------------
 // Reactive render function
 // ---------------------------------------------------------------------------
 
@@ -412,12 +376,12 @@ export function render(state) {
   toggleAlertClasses(el.telemetryGateWait.parentElement, state.telemetry.avgGateWaitTime > 30);
   toggleAlertClasses(el.telemetryConcessionWait.parentElement, state.telemetry.avgConcessionWaitTime > 20);
 
-  // Render sub-sections
-  renderIncidents(state.incidents);
+  // Render sub-sections using modular renderers
+  renderIncidents(state.incidents, el.incidentsList);
   renderLogs(state.logs);
 
   if (el.volunteerRoster && state.volunteers) {
-    renderVolunteers(state.volunteers, state.zones);
+    renderVolunteers(state.volunteers, state.zones, el.volunteerRoster, el.volActiveCount);
   }
 
   updateSVGMapColors(state.zones);
@@ -434,170 +398,7 @@ function toggleAlertClasses(container, isAlerting) {
 }
 
 // ---------------------------------------------------------------------------
-// Incident rendering & GenAI drafting
-// ---------------------------------------------------------------------------
-
-/**
- * Render the incidents queue on the staff dashboard.
- * @param {Array<import('./state').Incident>} incidents - Current incident list
- */
-function renderIncidents(incidents) {
-  const scrollPos = el.incidentsList.scrollTop;
-  el.incidentsList.innerHTML = '';
-
-  if (incidents.length === 0) {
-    el.incidentsList.innerHTML = `
-      <div class="empty-incidents">
-        <span class="empty-icon">✓</span>
-        <p>No active alerts. All stadium systems operating nominally.</p>
-      </div>`;
-    return;
-  }
-
-  incidents.forEach(inc => {
-    const item = document.createElement('div');
-    item.className = `incident-card severity-${inc.severity} status-${inc.status}`;
-    item.id = `card-${inc.id}`;
-
-    const statusText = inc.status.toUpperCase().replace('_', ' ');
-    const statusBadgeClass = `badge-${inc.status}`;
-    const actionAreaHTML = buildIncidentActionHTML(inc);
-
-    item.innerHTML = `
-      <div class="incident-header">
-        <span class="incident-severity-dot"></span>
-        <h4 class="incident-title">${escapeHTML(inc.title)}</h4>
-        <span class="incident-badge ${statusBadgeClass}">${statusText}</span>
-      </div>
-      <div class="incident-meta">Zone: ${escapeHTML(inc.zone)} | Raised: ${inc.timestamp}</div>
-      <p class="incident-desc">${escapeHTML(inc.description)}</p>
-      <div class="incident-actions-container">
-        ${actionAreaHTML}
-      </div>
-    `;
-
-    bindIncidentButtons(item, inc);
-    el.incidentsList.appendChild(item);
-  });
-
-  el.incidentsList.scrollTop = scrollPos;
-}
-
-/**
- * Build the action area HTML for an incident based on its current status.
- * @param {import('./state').Incident} inc - Incident object
- * @returns {string} HTML string for the action area
- */
-function buildIncidentActionHTML(inc) {
-  switch (inc.status) {
-    case 'pending':
-      return `
-        <button class="ops-btn primary-ops-btn draft-plan-btn" data-id="${inc.id}">
-          ⚡ Draft AI Response Plan
-        </button>`;
-
-    case 'drafting':
-      return `
-        <div class="ai-loading-indicator">
-          <div class="spinner"></div>
-          <span>GenAI compiling dispatcher response...</span>
-        </div>`;
-
-    case 'has_plan':
-      return `
-        <div class="ai-plan-box">
-          <div class="ai-plan-content">${sanitizeAIResponse(inc.actionPlan)}</div>
-          <div class="ai-plan-actions">
-            <button class="ops-btn success-ops-btn resolve-btn" data-id="${inc.id}">
-              ✓ Deploy Plan & Resolve Incident
-            </button>
-            <button class="ops-btn primary-ops-btn broadcast-announcement-btn" data-zone="${inc.zone}" data-id="${inc.id}">
-              🔊 Voice Broadcast Alert
-            </button>
-            <button class="ops-btn secondary-ops-btn draft-plan-btn" data-id="${inc.id}">
-              ↻ Re-draft
-            </button>
-          </div>
-        </div>`;
-
-    case 'resolved':
-      return '<div class="resolved-stamp">✓ Action Plan Deployed & Resolved</div>';
-
-    default:
-      return '';
-  }
-}
-
-/**
- * Bind click event listeners to action buttons within an incident card.
- * @param {HTMLElement} item - Incident card DOM element
- * @param {import('./state').Incident} inc - Incident data object
- */
-function bindIncidentButtons(item, inc) {
-  const draftBtn = item.querySelector('.draft-plan-btn');
-  if (draftBtn) {
-    draftBtn.addEventListener('click', () => triggerIncidentPlanDraft(inc.id));
-  }
-
-  const resolveBtn = item.querySelector('.resolve-btn');
-  if (resolveBtn) {
-    resolveBtn.addEventListener('click', () => {
-      playTone(440, 0.2);
-      resolveIncident(inc.id);
-    });
-  }
-
-  const broadcastBtn = item.querySelector('.broadcast-announcement-btn');
-  if (broadcastBtn) {
-    broadcastBtn.addEventListener('click', () => handleBroadcast(broadcastBtn.dataset.zone));
-  }
-}
-
-/**
- * Handle the voice broadcast for a specific zone incident.
- * @param {string} zoneKey - Zone identifier
- */
-function handleBroadcast(zoneKey) {
-  playTone(660, 0.1);
-  setTimeout(() => playTone(880, 0.15), 100);
-
-  const ZONE_BROADCASTS = {
-    gateC: 'Gate C is experiencing high wait times. For faster entry, please walk to Gate D where wait times are under 10 minutes.',
-    sector100: 'Attention spectators. High heat levels reported. Roaming hydration stewards are distributing water. Stay hydrated.',
-    sector300: 'Attention spectators. High heat levels reported. Roaming hydration stewards are distributing water. Stay hydrated.',
-    transitHub: 'Transit warning. Metro shuttle buses are delayed due to loop traffic. Spectators are advised to use the Green Ribbon Trail to walk to the Metro station.'
-  };
-
-  const warningText = ZONE_BROADCASTS[zoneKey] || 'Attention spectators. Please follow stewards instructions in this area.';
-  speakTextTextToSpeech(warningText);
-  addLog(`AI Voice Broadcast Alert deployed for ${zoneKey}.`, 'info');
-}
-
-/**
- * Trigger GenAI / mock AI response drafting for a specific incident.
- * @param {string} incidentId - ID of the incident to draft a plan for
- */
-async function triggerIncidentPlanDraft(incidentId) {
-  const state = getState();
-  const inc = state.incidents.find(i => i.id === incidentId);
-  if (!inc) return;
-
-  playTone(800, 0.1);
-  updateIncident(incidentId, { status: 'drafting' });
-
-  try {
-    const plan = await generateContent('incident', inc);
-    updateIncident(incidentId, { status: 'has_plan', actionPlan: plan });
-    addLog(`AI Response plan drafted for ${inc.title}. Ready for validation.`, 'info');
-  } catch (error) {
-    console.error('Failed to generate action plan:', error);
-    updateIncident(incidentId, { status: 'pending' });
-    addLog(`AI dispatch generation failed for ${inc.title}.`, 'error');
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Logs & Volunteer rendering
+// Logs rendering
 // ---------------------------------------------------------------------------
 
 /**
@@ -617,55 +418,6 @@ function renderLogs(logs) {
   });
 }
 
-/**
- * Render the volunteer roster dynamically based on state.
- * @param {Array<import('./state').Volunteer>} volunteers - Volunteer list from state
- * @param {Record<string, import('./state').Zone>} zones - Zone lookup map from state
- */
-function renderVolunteers(volunteers, zones) {
-  if (el.volActiveCount) {
-    el.volActiveCount.textContent = `${volunteers.length} Active Helpers`;
-  }
-
-  el.volunteerRoster.innerHTML = '';
-  volunteers.forEach(vol => {
-    const item = document.createElement('div');
-    item.className = `vol-item status-${vol.status}`;
-
-    const statusIcon = getVolunteerIcon(vol);
-    const langStr = vol.languages.join(' / ');
-    const zoneName = zones[vol.zone]?.name || vol.zone;
-    const statusLabel = vol.status === 'dispatched'
-      ? '<span class="vol-status-label dispatched-label">[Dispatched]</span>'
-      : '<span class="vol-status-label idle-label">[Idle]</span>';
-
-    item.innerHTML = `
-      <span class="vol-status-icon" aria-hidden="true">${statusIcon}</span>
-      <div class="vol-info">
-        <span class="vol-name">${escapeHTML(vol.name)} (${escapeHTML(langStr)})</span>
-        <span class="vol-assignment">
-          ${escapeHTML(zoneName)} • ${escapeHTML(vol.role)}
-          ${statusLabel}
-        </span>
-      </div>
-    `;
-    el.volunteerRoster.appendChild(item);
-  });
-}
-
-/**
- * Determine the appropriate status emoji for a volunteer.
- * @param {import('./state').Volunteer} vol - Volunteer object
- * @returns {string} Emoji icon string
- */
-function getVolunteerIcon(vol) {
-  const isFemale = vol.name === 'Sofia';
-  if (vol.status === 'dispatched') {
-    return isFemale ? '🏃‍♀️' : '🏃‍♂️';
-  }
-  return isFemale ? '🙋‍♀️' : '🙋‍♂️';
-}
-
 // ---------------------------------------------------------------------------
 // Chat handling
 // ---------------------------------------------------------------------------
@@ -681,6 +433,9 @@ async function handleChatSubmit(e) {
 
   playTone(700, 0.1);
   el.chatInput.value = '';
+
+  const { detectPromptInjection } = await import('./sanitizer.js');
+  const { addChatMessage } = await import('./state.js');
 
   addChatMessage('user', text);
 
@@ -706,6 +461,7 @@ async function handleChatSubmit(e) {
   el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
 
   try {
+    const { generateContent } = await import('./ai-client.js');
     const aiResponse = await generateContent('chat', {
       message: text,
       language: getState().settings.selectedLanguage
@@ -727,92 +483,6 @@ async function handleChatSubmit(e) {
 
     addChatMessage('ai', 'I apologize, but I am experiencing issues retrieving updates right now. Please seek a stadium steward at the closest Guest Information Pod.');
   }
-}
-
-// ---------------------------------------------------------------------------
-// Sustainability & Wayfinding
-// ---------------------------------------------------------------------------
-
-/**
- * Generate eco recommendations from live telemetry via GenAI.
- */
-async function generateSustainabilityPlan() {
-  const state = getState();
-  el.ecoContainer.innerHTML = `
-    <div class="ai-loading-indicator">
-      <div class="spinner"></div>
-      <span>Eco-Advisor parsing utility loads...</span>
-    </div>`;
-
-  try {
-    const recommendations = await generateContent('sustainability', {
-      occupancy: state.telemetry.stadiumOccupancy,
-      greenEnergyUsage: state.telemetry.greenEnergyUsage,
-      wasteRecyclingRate: state.telemetry.wasteRecyclingRate,
-      waterSavedLitres: state.telemetry.waterSavedLitres
-    });
-
-    el.ecoContainer.innerHTML = sanitizeAIResponse(recommendations);
-    addLog('AI sustainability recommendations updated.', 'success');
-  } catch (_e) {
-    el.ecoContainer.innerHTML = '<p class="error-text">Failed to retrieve sustainability plan. Check connectivity.</p>';
-  }
-}
-
-/**
- * Calculate routing guide between two points in the stadium.
- * Uses live zone telemetry to factor in queue times and delays.
- */
-function calculateWayfindingRoute() {
-  const from = el.navFromSelect.value;
-  const to = el.navToSelect.value;
-
-  if (from === to) {
-    el.navRouteOutput.innerHTML = '<div class="route-step">You are already at your destination.</div>';
-    return;
-  }
-
-  const state = getState();
-  const fromZone = state.zones[from];
-  const toZone = state.zones[to];
-
-  if (!fromZone || !toZone) {
-    el.navRouteOutput.innerHTML = '';
-    return;
-  }
-
-  const steps = [];
-
-  // Origin departure instructions
-  const DEPARTURE_INSTRUCTIONS = {
-    gateA: 'Exit Gate A entrance plaza and walk straight toward Sector 100 ring corridor.',
-    gateB: 'Enter Gate B and take the escalators up to Level 1 Concourse.',
-    gateC: 'Pass security check at Gate C, then follow the orange banners on the main loop corridor.',
-    gateD: 'Pass Gate D ticket lanes and keep right toward the West lifts.'
-  };
-  if (DEPARTURE_INSTRUCTIONS[from]) {
-    steps.push(DEPARTURE_INSTRUCTIONS[from]);
-  }
-
-  // Destination arrival instructions
-  if (to.startsWith('concession')) {
-    steps.push(`Look for the food zone directories. ${toZone.name} is located nearby Section 112. (Queue time: ${toZone.waitTime} mins).`);
-  } else if (to.startsWith('gate')) {
-    steps.push(`Follow exit signs for the outer loop towards the ${toZone.name}.`);
-  } else if (to === 'transitHub') {
-    steps.push('Head through the main concourse exit gates toward the East Boulevard, and follow the green icons to the subway shuttle loading zone.');
-    if (state.zones.transitHub.status === 'warning' || state.zones.transitHub.status === 'critical') {
-      steps.push(`⚠️ Note: Metro shuttles have high queues (delay: ${state.zones.transitHub.waitTime}m). You may prefer the designated walking bypass path.`);
-    }
-  }
-
-  steps.push('Arrived. Seek volunteers in bright green vests for seat row direction.');
-
-  const html = `<h4>Route Guide: ${fromZone.name} to ${toZone.name}</h4>` +
-    `<ul>${steps.map(s => `<li>${s}</li>`).join('')}</ul>`;
-  el.navRouteOutput.innerHTML = html;
-
-  announceToScreenReader(`Route calculated from ${fromZone.name} to ${toZone.name}.`);
 }
 
 // Re-export utilities for backward compatibility
