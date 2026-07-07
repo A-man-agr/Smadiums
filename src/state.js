@@ -150,6 +150,12 @@ function notify() {
  * Save settings to localStorage.
  */
 export function saveSettings(settings) {
+  if (settings.geminiApiKey !== undefined && settings.geminiApiKey !== '') {
+    const keyRegex = /^AIzaSy[A-Za-z0-9_-]{33}$/;
+    if (!keyRegex.test(settings.geminiApiKey)) {
+      throw new Error('Invalid Gemini API Key format. A valid key starts with "AIzaSy" and is 39 characters long.');
+    }
+  }
   state.settings = { ...state.settings, ...settings };
   if (settings.geminiApiKey !== undefined && typeof localStorage !== 'undefined') {
     localStorage.setItem('smadiums_api_key', settings.geminiApiKey);

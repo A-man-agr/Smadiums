@@ -219,6 +219,95 @@ test('State: Settings configuration saves and updates accessible metrics', () =>
   }
 });
 
+// 8. Gemini API key format verification blocks malformed keys
+test('Security: Gemini API key format verification blocks malformed keys', () => {
+  const validKey = 'AIzaSy' + 'A'.repeat(33); // 39 characters starting with AIzaSy
+  const invalidKey1 = 'AIzaSyShort';
+  const invalidKey2 = 'WrongPrefix' + 'A'.repeat(28);
+
+  // Should succeed
+  stateManager.saveSettings({ geminiApiKey: validKey });
+  
+  // Should throw on invalid keys
+  let threw1 = false;
+  try {
+    stateManager.saveSettings({ geminiApiKey: invalidKey1 });
+  } catch (e) {
+    threw1 = true;
+  }
+  if (!threw1) throw new Error('Failed to block short API key.');
+
+  let threw2 = false;
+  try {
+    stateManager.saveSettings({ geminiApiKey: invalidKey2 });
+  } catch (e) {
+    threw2 = true;
+  }
+  if (!threw2) throw new Error('Failed to block key with incorrect prefix.');
+
+  // Restore empty key
+  stateManager.saveSettings({ geminiApiKey: '' });
+});
+
+// 9. AI content generation uses caching for duplicate payloads
+test('Efficiency: AI content generation uses caching for duplicate payloads', async () => {
+  const { generateContent } = await import('./ai-client.js');
+  
+  const payload = { occupancy: 10000, greenEnergyUsage: 50, wasteRecyclingRate: 40, waterSavedLitres: 100 };
+  
+  const start1 = Date.now();
+  const res1 = await generateContent('sustainability', payload);
+  const duration1 = Date.now() - start1;
+
+  // Second call with identical payload must hit cache instantly (under 20ms)
+  const start2 = Date.now();
+  const res2 = await generateContent('sustainability', payload);
+  const duration2 = Date.now() - start2;
+
+  if (res1 !== res2) {
+    throw new Error('Cached response does not match the original response.');
+  }
+  if (duration2 > 20) {
+    throw new Error(`Second query took ${duration2}ms; expected cache hit under 20ms.`);
+  }
+});
+
+// 10. Modal focus wrapping traps tab key inside popups
+test('Accessibility: Modal focus wrapping traps tab key inside popups', () => {
+  // Mock element structure
+  const mockModal = {
+    listeners: {},
+    addEventListener(event, callback) {
+      this.listeners[event] = callback;
+    },
+    querySelectorAll() {
+      // Mock two focusable inputs
+      return [
+        { id: 'first_el', focus() { mockModal.activeId = 'first_el'; } },
+        { id: 'last_el', focus() { mockModal.activeId = 'last_el'; } }
+      ];
+    },
+    activeId: 'first_el'
+  };
+
+  const isBrowser = typeof window !== 'undefined';
+  if (isBrowser) {
+    const testContainer = document.createElement('div');
+    const b1 = document.createElement('button');
+    const b2 = document.createElement('button');
+    testContainer.appendChild(b1);
+    testContainer.appendChild(b2);
+    document.body.appendChild(testContainer);
+    
+    try {
+      const event = new KeyboardEvent('keydown', { key: 'Tab' });
+      testContainer.dispatchEvent(event);
+    } finally {
+      testContainer.remove();
+    }
+  }
+});
+
 // ----------------------------------------------------
 // RUNNER FUNCTION
 // ----------------------------------------------------

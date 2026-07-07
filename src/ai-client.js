@@ -11,25 +11,39 @@ import { getState } from './state.js';
  * @param {Object} payload - Context and input parameters
  * @returns {Promise<string>} Generated text content
  */
+// In-memory cache for AI queries to prevent duplicate network calls and reduce latency
+const aiResponseCache = new Map();
+
 export async function generateContent(type, payload) {
+  const cacheKey = `${type}_${JSON.stringify(payload)}`;
+  if (aiResponseCache.has(cacheKey)) {
+    console.log(`[Cache Hit] Returning cached AI response for ${type}`);
+    return aiResponseCache.get(cacheKey);
+  }
+
   const settings = getState().settings;
   const apiKey = settings.geminiApiKey;
+  let response = '';
 
   if (apiKey && apiKey.trim() !== '') {
     try {
-      return await callGeminiAPI(apiKey, type, payload);
+      response = await callGeminiAPI(apiKey, type, payload);
     } catch (e) {
       console.error('Gemini API call failed, falling back to local engine:', e);
-      return generateLocalMock(type, payload) + '\n\n*(Notice: Fell back to offline AI engine due to API connection issue)*';
+      response = generateLocalMock(type, payload) + '\n\n*(Notice: Fell back to offline AI engine due to API connection issue)*';
     }
   } else {
     // Return high-fidelity local mock engine output
-    return new Promise((resolve) => {
+    response = await new Promise((resolve) => {
       setTimeout(() => {
         resolve(generateLocalMock(type, payload));
       }, 800); // Simulate network latency
     });
   }
+
+  // Save in cache
+  aiResponseCache.set(cacheKey, response);
+  return response;
 }
 
 /**

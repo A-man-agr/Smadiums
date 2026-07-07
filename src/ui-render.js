@@ -137,13 +137,20 @@ export function initUI() {
   
   el.saveSettingsForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    saveSettings({
-      geminiApiKey: el.apiKeyInput.value,
-      soundFeedback: el.soundToggle.checked
-    });
-    el.settingsModal.classList.remove('active');
-    playTone(600, 0.15); // Confirmation sound
+    try {
+      saveSettings({
+        geminiApiKey: el.apiKeyInput.value.trim(),
+        soundFeedback: el.soundToggle.checked
+      });
+      el.settingsModal.classList.remove('active');
+      playTone(600, 0.15); // Confirmation sound
+    } catch (err) {
+      playTone(300, 0.2); // Error sound
+      alert(err.message);
+    }
   });
+
+  trapFocus(el.settingsModal);
 
   // Accessibility handlers
   el.themeSelect.addEventListener('change', (e) => {
@@ -335,6 +342,31 @@ function announceToScreenReader(message) {
     document.body.appendChild(announcer);
   }
   announcer.textContent = message;
+}
+
+/**
+ * Trap tab key focus inside modal containers for WCAG compliance.
+ */
+function trapFocus(modal) {
+  const focusable = modal.querySelectorAll('input, button, select, [tabindex="0"]');
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  modal.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
 }
 
 /**
