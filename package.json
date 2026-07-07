@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/run-tests.js"
+    "test": "node tests/run-tests.js",
+    "lint": "eslint src server.js tests"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
 }
