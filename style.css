@@ -1540,6 +1540,19 @@ body.theme-high-contrast .send-btn {
   color: var(--text-muted);
 }
 
+.vol-status-label {
+  font-weight: bold;
+  margin-left: 0.25rem;
+}
+
+.dispatched-label {
+  color: #ff9f43;
+}
+
+.idle-label {
+  color: #2ecc71;
+}
+
 .border-top-panel {
   border-top: 1px solid var(--card-border);
   padding-top: 1rem;
@@ -1702,4 +1715,18 @@ body.theme-high-contrast .send-btn {
 @keyframes pulse-live {
   0% { opacity: 0.7; }
   100% { opacity: 1; }
+}
+
+/* Fatal error banner displayed when app initialization fails */
+.fatal-error-banner {
+  background: #e74c3c;
+  color: #fff;
+  padding: 15px;
+  text-align: center;
+  font-weight: bold;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 10000;
 }

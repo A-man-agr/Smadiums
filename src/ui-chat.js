@@ -1,15 +1,16 @@
 /**
  * UI Chat and Speech Component for Smadiums.
  * Handles multilingual messaging display, Text-to-Speech (TTS), and Speech-to-Text (STT) integrations.
+ * @module ui-chat
  */
 
 import { sanitizeAIResponse, escapeHTML } from './sanitizer.js';
-import { playTone } from './ui-render.js';
+import { playTone } from './utils.js';
 
 /**
  * Render the chat bubbles inside the Fan Concierge.
- * @param {Array<Object>} chat - Message logs array from state
- * @param {HTMLElement} chatMessages - Container pane for messages
+ * @param {Array<import('./state').ChatMessage>} chat - Message logs array from state
+ * @param {HTMLElement | null} chatMessages - Container pane for messages
  * @returns {void}
  */
 export function renderChat(chat, chatMessages) {
@@ -65,14 +66,14 @@ export function speakTextTextToSpeech(text) {
       window.speechSynthesis.cancel();
       return;
     }
-    const cleanText = text.replace(/[\*\#\_]/g, '');
+    const cleanText = text.replace(/[*#_]/g, '');
     const utterance = new SpeechSynthesisUtterance(cleanText);
     
     // Detect Spanish and French language patterns for correct dialect
-    const firstWords = cleanText.toLowerCase();
-    if (firstWords.includes('puerta') || firstWords.includes('hola') || firstWords.includes('baño')) {
+    const lowerText = cleanText.toLowerCase();
+    if (lowerText.includes('puerta') || lowerText.includes('hola') || lowerText.includes('baño')) {
       utterance.lang = 'es-ES';
-    } else if (firstWords.includes('bonjour') || firstWords.includes('merci')) {
+    } else if (lowerText.includes('bonjour') || lowerText.includes('merci')) {
       utterance.lang = 'fr-FR';
     } else {
       utterance.lang = 'en-US';

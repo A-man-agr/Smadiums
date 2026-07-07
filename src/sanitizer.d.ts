@@ -1,5 +1,6 @@
 /**
  * TypeScript Typings for Smadiums Sanitizer and Input Security Gateways.
+ * @module sanitizer
  */
 
 export function escapeHTML(str: string | null | undefined): string;

@@ -1,7 +1,8 @@
 /**
  * Production Web Server for Smadiums.
- * Zero-dependency, lightweight static server with strict security headers,
+ * Zero-dependency, lightweight static file server with strict security headers,
  * ready for Google Cloud Run containerization.
+ * @module server
  */
 
 import http from 'http';
@@ -12,10 +13,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cloud Run binds to the PORT environment variable
+/** Cloud Run binds to the PORT environment variable; defaults to 3000 for local dev. */
 const PORT = process.env.PORT || 3000;
+
+/** Root directory for serving static files. */
 const PUBLIC_DIR = __dirname;
 
+/** Mapping of file extensions to MIME content types. */
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -27,21 +31,30 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-const server = http.createServer((req, res) => {
-  // 1. Security Headers Configuration (Prevents XSS, Clickjacking, MIME sniffing)
+/**
+ * Apply security response headers to prevent XSS, clickjacking, and MIME sniffing.
+ * @param {http.ServerResponse} res - HTTP response object
+ */
+function setSecurityHeaders(res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Content-Security-Policy', "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://generativelanguage.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; script-src 'self' 'unsafe-inline';");
+}
 
-  // Normalize request URL path to file path
-  let safeUrl = req.url;
+/**
+ * Resolve the requested URL to a safe filesystem path.
+ * Returns null if the path fails safety checks (directory traversal).
+ * @param {string} requestUrl - Raw request URL
+ * @returns {{ filePath: string, error: number | null }} Resolved file path and optional error code
+ */
+function resolveFilePath(requestUrl) {
+  let safeUrl = requestUrl;
+
   try {
     safeUrl = decodeURIComponent(safeUrl);
-  } catch (e) {
-    res.statusCode = 400;
-    res.end('Bad Request');
-    return;
+  } catch (_e) {
+    return { filePath: '', error: 400 };
   }
 
   // Strip query parameters
@@ -50,33 +63,40 @@ const server = http.createServer((req, res) => {
     safeUrl = safeUrl.substring(0, queryIdx);
   }
 
-  let filePath = path.join(PUBLIC_DIR, safeUrl === '/' ? 'index.html' : safeUrl);
-  
-  // 2. Directory Traversal Guard (Security block)
+  const filePath = path.join(PUBLIC_DIR, safeUrl === '/' ? 'index.html' : safeUrl);
+
+  // Directory traversal guard
   const relative = path.relative(PUBLIC_DIR, filePath);
   const isSafe = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
-  
+
   if (safeUrl !== '/' && !isSafe) {
-    res.statusCode = 403;
-    res.writeHead(403, { 'Content-Type': 'text/plain' });
-    res.end('Forbidden');
+    return { filePath: '', error: 403 };
+  }
+
+  return { filePath, error: null };
+}
+
+const server = http.createServer((req, res) => {
+  setSecurityHeaders(res);
+
+  const { filePath, error } = resolveFilePath(req.url);
+
+  if (error) {
+    const messages = { 400: 'Bad Request', 403: 'Forbidden' };
+    res.writeHead(error, { 'Content-Type': 'text/plain' });
+    res.end(messages[error]);
     return;
   }
 
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        res.statusCode = 404;
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('404 Not Found');
-      } else {
-        res.statusCode = 500;
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal Server Error');
-      }
+  fs.readFile(filePath, (readErr, data) => {
+    if (readErr) {
+      const statusCode = readErr.code === 'ENOENT' ? 404 : 500;
+      const statusText = readErr.code === 'ENOENT' ? '404 Not Found' : 'Internal Server Error';
+      res.writeHead(statusCode, { 'Content-Type': 'text/plain' });
+      res.end(statusText);
     } else {
       res.writeHead(200, { 'Content-Type': contentType });
       res.end(data);

@@ -1,5 +1,6 @@
 /**
  * TypeScript Typings for Smadiums Chat and Voice feedback.
+ * @module ui-chat
  */
 
 import { ChatMessage } from './state';

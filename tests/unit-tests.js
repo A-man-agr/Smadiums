@@ -3,8 +3,8 @@
  * Contains test definitions and assertion helpers runnable in browser console, Node, or visual UI.
  */
 
-import { escapeHTML, sanitizeAIResponse, detectPromptInjection } from './sanitizer.js';
-import * as stateManager from './state.js';
+import { escapeHTML, sanitizeAIResponse, detectPromptInjection } from '../src/sanitizer.js';
+import * as stateManager from '../src/state.js';
 
 const tests = [];
 
@@ -59,7 +59,7 @@ test('Sanitizer: sanitizeAIResponse formats lists correctly', () => {
 // 2. State Management Tests
 test('State: Subscription triggers listeners on update', () => {
   let triggerCount = 0;
-  const unsubscribe = stateManager.subscribe((state) => {
+  const unsubscribe = stateManager.subscribe((_state) => {
     triggerCount++;
   });
   
@@ -121,6 +121,45 @@ test('State: Incident resolution updates status and telemetry', () => {
   }
 });
 
+test('State: Volunteer status and incident resolution side effects', () => {
+  const originalVolunteers = stateManager.getState().volunteers;
+  
+  // Set Sofia (vol2, zone: sector300) to 'dispatched'
+  stateManager.updateVolunteerStatus('vol2', 'dispatched');
+  
+  let state = stateManager.getState();
+  let sofia = state.volunteers.find(v => v.id === 'vol2');
+  if (sofia.status !== 'dispatched') {
+    throw new Error('updateVolunteerStatus failed to set status to dispatched.');
+  }
+
+  // Create an incident in sector300
+  const incident = {
+    zone: 'sector300',
+    title: 'Volunteer Roster Test Incident',
+    description: 'Testing volunteer auto-reset',
+    severity: 'warning'
+  };
+  stateManager.addIncident(incident);
+
+  const activeInc = stateManager.getState().incidents.find(inc => inc.title === 'Volunteer Roster Test Incident');
+  if (!activeInc) {
+    throw new Error('Failed to create test incident.');
+  }
+
+  // Resolve the incident - this should reset Sofia back to 'idle'
+  stateManager.resolveIncident(activeInc.id);
+
+  const finalState = stateManager.getState();
+  sofia = finalState.volunteers.find(v => v.id === 'vol2');
+  if (sofia.status !== 'idle') {
+    throw new Error(`Expected Sofia to be reset to "idle" after resolving sector300 incident, but got "${sofia.status}"`);
+  }
+
+  // Clean up
+  stateManager.updateState({ volunteers: originalVolunteers });
+});
+
 // 3. Robustness Tests
 test('Sanitizer: Handles null, undefined, or number inputs gracefully', () => {
   if (escapeHTML(null) !== '') throw new Error('escapeHTML(null) must return empty string');
@@ -173,7 +212,7 @@ test('AI Client: Gracefully falls back to offline rules engine during API failur
   targetObj.fetch = () => Promise.reject(new Error('Network disconnected'));
 
   try {
-    const { generateContent } = await import('./ai-client.js');
+    const { generateContent } = await import('../src/ai-client.js');
     const response = await generateContent('chat', { message: 'Show me concession 2 lines', language: 'en' });
     
     // Response should still return high-quality content via local rules engine fallback
@@ -251,13 +290,11 @@ test('Security: Gemini API key format verification blocks malformed keys', () =>
 
 // 9. AI content generation uses caching for duplicate payloads
 test('Efficiency: AI content generation uses caching for duplicate payloads', async () => {
-  const { generateContent } = await import('./ai-client.js');
+  const { generateContent } = await import('../src/ai-client.js');
   
   const payload = { occupancy: 10000, greenEnergyUsage: 50, wasteRecyclingRate: 40, waterSavedLitres: 100 };
   
-  const start1 = Date.now();
   const res1 = await generateContent('sustainability', payload);
-  const duration1 = Date.now() - start1;
 
   // Second call with identical payload must hit cache instantly (under 20ms)
   const start2 = Date.now();

@@ -14,6 +14,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 COPY package.json index.html style.css server.js ./
 COPY src/ ./src
+COPY tests/ ./tests
 
 # Cloud Run defaults to exposing port 8080.
 ENV PORT=8080

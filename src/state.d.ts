@@ -1,11 +1,14 @@
 /**
  * TypeScript Typings for Smadiums State Management.
+ * @module state
  */
 
 export interface Telemetry {
   stadiumOccupancy: number;
   avgGateWaitTime: number;
   avgConcessionWaitTime: number;
+  crowdDensity: number;
+  sustainabilityScore: number;
   greenEnergyUsage: number;
   waterSavedLitres: number;
   wasteRecyclingRate: number;
@@ -16,6 +19,7 @@ export interface Zone {
   status: 'optimal' | 'warning' | 'critical';
   waitTime?: number;
   crowdDensity?: number;
+  queueLength?: number;
 }
 
 export interface Incident {
@@ -24,9 +28,9 @@ export interface Incident {
   title: string;
   description: string;
   severity: 'warning' | 'critical';
-  status: 'active' | 'resolved';
+  status: 'pending' | 'drafting' | 'has_plan' | 'resolved';
   timestamp: string;
-  responsePlan?: string;
+  actionPlan?: string | null;
 }
 
 export interface LogEntry {
@@ -49,6 +53,16 @@ export interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
   timestamp: string;
+  language?: string;
+}
+
+export interface Volunteer {
+  id: string;
+  name: string;
+  languages: string[];
+  zone: string;
+  role: string;
+  status: 'idle' | 'dispatched';
 }
 
 export interface AppState {
@@ -59,6 +73,7 @@ export interface AppState {
   logs: LogEntry[];
   settings: Settings;
   chatHistory: ChatMessage[];
+  volunteers: Volunteer[];
 }
 
 export type StateListener = (state: AppState) => void;
@@ -70,5 +85,7 @@ export function addIncident(inc: Omit<Incident, 'id' | 'status' | 'timestamp'>):
 export function resolveIncident(id: string): void;
 export function updateIncident(id: string, updates: Partial<Incident>): void;
 export function addLog(message: string, type?: LogEntry['type']): void;
-export function addChatMessage(sender: ChatMessage['sender'], text: string): void;
+export function addChatMessage(sender: ChatMessage['sender'], text: string, language?: string): void;
 export function saveSettings(settings: Partial<Settings>): void;
+export function updateVolunteerStatus(id: string, status: Volunteer['status'], zone?: string | null): void;
+export function triggerTelemetrySimulation(simulateFn: (state: AppState) => void): void;

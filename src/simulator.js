@@ -1,69 +1,108 @@
 /**
  * Simulator Module for Smadiums.
- * Simulates slight fluctuation of queues, energy usage, and fan movements in the background.
+ * Runs a background telemetry loop that fluctuates queue lengths, energy usage,
+ * and crowd densities to model realistic match-day dynamics.
+ * @module simulator
  */
 
 import { triggerTelemetrySimulation, addIncident } from './state.js';
 
+/** Simulation interval in milliseconds */
+const SIMULATION_INTERVAL_MS = 10000;
+
+/** Stadium capacity ceiling for occupancy fluctuations */
+const MAX_OCCUPANCY = 82500;
+const MIN_OCCUPANCY = 75000;
+
+/** Sustainability metric bounds */
+const ENERGY_MAX = 100;
+const ENERGY_MIN = 50;
+const RECYCLING_MAX = 98;
+const RECYCLING_MIN = 80;
+const RECYCLING_CHANGE_PROBABILITY = 0.8;
+
+/** Zone telemetry bounds */
+const MAX_WAIT_TIME = 60;
+const MIN_WAIT_TIME = 2;
+const MAX_CROWD_DENSITY = 100;
+const MIN_CROWD_DENSITY = 10;
+const MAX_QUEUE_LENGTH = 100;
+const MIN_QUEUE_LENGTH = 1;
+
+/** Zone status thresholds */
+const WAIT_TIME_CRITICAL_THRESHOLD = 40;
+const WAIT_TIME_WARNING_THRESHOLD = 20;
+const CROWD_CRITICAL_THRESHOLD = 85;
+const CROWD_WARNING_THRESHOLD = 65;
+
+/** Predictive incident auto-trigger threshold */
+const PREDICTIVE_ALERT_DENSITY_THRESHOLD = 88;
+
 /**
- * Start the Live Stadium Telemetry Simulation.
- * Fluctuate queue lengths, wait times, and spectator counts every 10 seconds.
+ * Start the live stadium telemetry simulation.
+ * Fluctuates queue lengths, wait times, and spectator counts at regular intervals.
+ * Automatically spawns predictive crowd compression incidents when density exceeds thresholds.
  * @returns {void}
  */
 export function startSimulator() {
   setInterval(() => {
     triggerTelemetrySimulation((state) => {
-      // Modify general occupancy and sustainability variables slightly
+      // Fluctuate general occupancy and sustainability metrics
       const fluctuation = Math.floor(Math.random() * 5) - 2; // -2 to +2
-      state.telemetry.stadiumOccupancy = Math.min(82500, Math.max(75000, state.telemetry.stadiumOccupancy + fluctuation * 15));
-      state.telemetry.greenEnergyUsage = Math.min(100, Math.max(50, state.telemetry.greenEnergyUsage + (Math.random() > 0.5 ? 1 : -1)));
+      state.telemetry.stadiumOccupancy = Math.min(MAX_OCCUPANCY, Math.max(MIN_OCCUPANCY, state.telemetry.stadiumOccupancy + fluctuation * 15));
+      state.telemetry.greenEnergyUsage = Math.min(ENERGY_MAX, Math.max(ENERGY_MIN, state.telemetry.greenEnergyUsage + (Math.random() > 0.5 ? 1 : -1)));
       state.telemetry.waterSavedLitres += Math.floor(Math.random() * 10) + 5;
-      
-      // Divert recycling rates
-      if (Math.random() > 0.8) {
-        state.telemetry.wasteRecyclingRate = Math.min(98, Math.max(80, state.telemetry.wasteRecyclingRate + (Math.random() > 0.5 ? 1 : -1)));
+
+      // Occasionally adjust recycling rate
+      if (Math.random() > RECYCLING_CHANGE_PROBABILITY) {
+        state.telemetry.wasteRecyclingRate = Math.min(RECYCLING_MAX, Math.max(RECYCLING_MIN, state.telemetry.wasteRecyclingRate + (Math.random() > 0.5 ? 1 : -1)));
       }
 
-      // Modify zone telemetry slightly if they are not in an active incident
-      for (let key in state.zones) {
+      // Modify zone telemetry for zones without active incidents
+      for (const key in state.zones) {
         const zone = state.zones[key];
-        const isIncidentZone = state.incidents.some(inc => inc.zone === key && inc.status !== 'resolved');
-        
-        if (!isIncidentZone) {
-          if (zone.waitTime !== undefined) {
-            const wFluct = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-            zone.waitTime = Math.min(60, Math.max(2, zone.waitTime + wFluct));
-            zone.status = zone.waitTime > 40 ? 'critical' : zone.waitTime > 20 ? 'warning' : 'optimal';
-          }
-          if (zone.crowdDensity !== undefined) {
-            const cFluct = Math.floor(Math.random() * 5) - 2; // -2 to 2
-            zone.crowdDensity = Math.min(100, Math.max(10, zone.crowdDensity + cFluct));
-            if (zone.waitTime === undefined) {
-              zone.status = zone.crowdDensity > 85 ? 'critical' : zone.crowdDensity > 65 ? 'warning' : 'optimal';
-            }
-          }
-          if (zone.queueLength !== undefined) {
-            const qFluct = Math.floor(Math.random() * 3) - 1; // -1 to 1
-            zone.queueLength = Math.min(100, Math.max(1, zone.queueLength + qFluct));
-          }
+        const hasActiveIncident = state.incidents.some(inc => inc.zone === key && inc.status !== 'resolved');
 
-          // Predictive crowd safety check:
-          // Automatically spawn a warning incident if density spikes, modeling predictive logistics
-          if (zone.crowdDensity !== undefined && zone.crowdDensity > 88) {
-            const existingInc = state.incidents.find(inc => inc.zone === key && inc.status !== 'resolved');
-            if (!existingInc) {
-              setTimeout(() => {
-                addIncident({
-                  zone: key,
-                  title: `Predictive Alert: ${zone.name} Compression Risk`,
-                  description: `Stadium analytics forecast high crowd compression in ${zone.name}. Seating access flow is running at ${zone.crowdDensity}%, exceeding security control thresholds.`,
-                  severity: 'critical'
-                });
-              }, 50);
-            }
+        if (hasActiveIncident) continue;
+
+        if (zone.waitTime !== undefined) {
+          const wFluct = Math.floor(Math.random() * 3) - 1;
+          zone.waitTime = Math.min(MAX_WAIT_TIME, Math.max(MIN_WAIT_TIME, zone.waitTime + wFluct));
+          zone.status = zone.waitTime > WAIT_TIME_CRITICAL_THRESHOLD ? 'critical'
+            : zone.waitTime > WAIT_TIME_WARNING_THRESHOLD ? 'warning'
+            : 'optimal';
+        }
+
+        if (zone.crowdDensity !== undefined) {
+          const cFluct = Math.floor(Math.random() * 5) - 2;
+          zone.crowdDensity = Math.min(MAX_CROWD_DENSITY, Math.max(MIN_CROWD_DENSITY, zone.crowdDensity + cFluct));
+          if (zone.waitTime === undefined) {
+            zone.status = zone.crowdDensity > CROWD_CRITICAL_THRESHOLD ? 'critical'
+              : zone.crowdDensity > CROWD_WARNING_THRESHOLD ? 'warning'
+              : 'optimal';
+          }
+        }
+
+        if (zone.queueLength !== undefined) {
+          const qFluct = Math.floor(Math.random() * 3) - 1;
+          zone.queueLength = Math.min(MAX_QUEUE_LENGTH, Math.max(MIN_QUEUE_LENGTH, zone.queueLength + qFluct));
+        }
+
+        // Predictive crowd safety: auto-spawn incident if density spikes
+        if (zone.crowdDensity !== undefined && zone.crowdDensity > PREDICTIVE_ALERT_DENSITY_THRESHOLD) {
+          const existingInc = state.incidents.find(inc => inc.zone === key && inc.status !== 'resolved');
+          if (!existingInc) {
+            setTimeout(() => {
+              addIncident({
+                zone: key,
+                title: `Predictive Alert: ${zone.name} Compression Risk`,
+                description: `Stadium analytics forecast high crowd compression in ${zone.name}. Seating access flow is running at ${zone.crowdDensity}%, exceeding security control thresholds.`,
+                severity: 'critical'
+              });
+            }, 50);
           }
         }
       }
     });
-  }, 10000); // Trigger telemetry fluctuation every 10 seconds
+  }, SIMULATION_INTERVAL_MS);
 }

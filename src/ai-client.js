@@ -1,19 +1,22 @@
 /**
  * GenAI Integration Module for Smadiums.
  * Implements a hybrid client supporting Gemini API calls and high-fidelity mock fallback.
+ * @module ai-client
  */
 
 import { getState } from './state.js';
 
-/**
- * Request generation from Gemini API or local mock engine.
- * @param {string} type - 'chat' | 'incident' | 'sustainability'
- * @param {Object} payload - Context and input parameters
- * @returns {Promise<string>} Generated text content
- */
-// In-memory cache for AI queries to prevent duplicate network calls and reduce latency
+/** In-memory cache for AI queries to prevent duplicate network calls and reduce latency. */
 const aiResponseCache = new Map();
 
+/**
+ * Request generation from Gemini API or local mock engine.
+ * Falls back to a high-fidelity offline rules engine when no API key is configured
+ * or when the API call fails.
+ * @param {'chat' | 'incident' | 'sustainability'} type - Content generation type
+ * @param {Record<string, any>} payload - Context and input parameters
+ * @returns {Promise<string>} Generated text content
+ */
 export async function generateContent(type, payload) {
   const cacheKey = `${type}_${JSON.stringify(payload)}`;
   if (aiResponseCache.has(cacheKey)) {
@@ -47,20 +50,23 @@ export async function generateContent(type, payload) {
 }
 
 /**
- * Call the Gemini 1.5 Flash API to generate text.
+ * Build a context-specific prompt for the Gemini API.
+ * @param {'chat' | 'incident' | 'sustainability'} type - Content generation type
+ * @param {Record<string, any>} payload - Context data for prompt interpolation
+ * @returns {string} Constructed prompt string
  */
-async function callGeminiAPI(apiKey, type, payload) {
-  let prompt = '';
-  
-  if (type === 'chat') {
-    prompt = `You are the official FIFA World Cup 2026 Stadium GenAI Concierge.
+function buildPrompt(type, payload) {
+  switch (type) {
+    case 'chat':
+      return `You are the official FIFA World Cup 2026 Stadium GenAI Concierge.
 User Message: "${payload.message}"
 Current Language: "${payload.language || 'en'}"
 Stadium status: Seating capacity 82,500. Matches are active. 
 Provide a helpful, polite, structured response matching their language. Keep it detailed but concise.
 Use markdown bullet points for routes or details. Focus on safety, ease of movement, and high accessibility.`;
-  } else if (type === 'incident') {
-    prompt = `You are the FIFA World Cup 2026 Operations Real-Time Decision Support AI.
+
+    case 'incident':
+      return `You are the FIFA World Cup 2026 Operations Real-Time Decision Support AI.
 An incident has occurred in the stadium:
 Zone: ${payload.zone}
 Incident Title: ${payload.title}
@@ -73,8 +79,9 @@ Generate a tactical Response Plan containing:
 3. **MULTILINGUAL PUBLIC BROADCAST**: A draft announcement in English and Spanish (and/or French) to push to fans via the app.
 4. **STAFF TAILORED ALERT**: Specific directive text for volunteer handsets.
 Make the layout highly structured with clear sections.`;
-  } else if (type === 'sustainability') {
-    prompt = `You are the FIFA Green Energy & Sustainability Advisor.
+
+    case 'sustainability':
+      return `You are the FIFA Green Energy & Sustainability Advisor.
 Current Stadium Telemetry:
 - Occupancy: ${payload.occupancy} fans
 - Solar/Wind Grid Energy: ${payload.greenEnergyUsage}%
@@ -82,21 +89,32 @@ Current Stadium Telemetry:
 - Water Saved: ${payload.waterSavedLitres} Litres
 
 Provide 3 highly specific, real-time action recommendations to improve resource conservation and waste diversion rates right now during the match. Format as structured bullet points.`;
-  }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  
+    default:
+      return '';
+  }
+}
+
+/** Gemini API endpoint template. */
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+/**
+ * Call the Gemini 1.5 Flash API to generate text content.
+ * @param {string} apiKey - Gemini API key
+ * @param {'chat' | 'incident' | 'sustainability'} type - Content generation type
+ * @param {Record<string, any>} payload - Context data for prompt building
+ * @returns {Promise<string>} Generated text from Gemini
+ * @throws {Error} On HTTP errors or unexpected response structures
+ */
+async function callGeminiAPI(apiKey, type, payload) {
+  const prompt = buildPrompt(type, payload);
+  const endpoint = `${GEMINI_API_URL}?key=${apiKey}`;
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }]
+      contents: [{ parts: [{ text: prompt }] }]
     })
   });
 
@@ -105,16 +123,20 @@ Provide 3 highly specific, real-time action recommendations to improve resource 
   }
 
   const data = await response.json();
-  if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
-    return data.candidates[0].content.parts[0].text;
-  } else {
+  const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!generatedText) {
     throw new Error('Invalid response structure from Gemini API');
   }
+  return generatedText;
 }
 
 /**
  * Local rule-based high-fidelity mock AI generator.
- * Produces structured, realistic output for the FIFA World Cup context.
+ * Produces structured, realistic output matching live Gemini API quality
+ * for offline development and API fallback scenarios.
+ * @param {'chat' | 'incident' | 'sustainability'} type - Content generation type
+ * @param {Record<string, any>} payload - Context data
+ * @returns {string} Generated mock response text
  */
 function generateLocalMock(type, payload) {
   if (type === 'chat') {

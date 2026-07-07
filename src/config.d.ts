@@ -1,7 +1,14 @@
-import { Settings, Telemetry, Zone, Incident, ChatMessage } from './state';
+/**
+ * TypeScript Typings for Smadiums Configuration Constants.
+ * All exports are deeply frozen and should be treated as immutable.
+ * @module config
+ */
 
-export const INITIAL_SETTINGS: Omit<Settings, 'geminiApiKey'>;
-export const INITIAL_TELEMETRY: Telemetry;
-export const INITIAL_ZONES: Record<string, Zone>;
-export const DEFAULT_INCIDENTS: Omit<Incident, 'timestamp'>[];
-export const INITIAL_CHAT_GREETING: Omit<ChatMessage, 'timestamp'>;
+import { Settings, Telemetry, Zone, Incident, ChatMessage, Volunteer } from './state';
+
+export const INITIAL_SETTINGS: Readonly<Omit<Settings, 'geminiApiKey'>>;
+export const INITIAL_TELEMETRY: Readonly<Telemetry>;
+export const INITIAL_ZONES: Readonly<Record<string, Readonly<Zone>>>;
+export const DEFAULT_INCIDENTS: ReadonlyArray<Readonly<Omit<Incident, 'timestamp'>>>;
+export const INITIAL_CHAT_GREETING: Readonly<Omit<ChatMessage, 'timestamp'>>;
+export const INITIAL_VOLUNTEERS: ReadonlyArray<Readonly<Volunteer>>;

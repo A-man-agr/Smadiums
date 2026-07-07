@@ -1,5 +1,6 @@
 /**
  * TypeScript Typings for Smadiums Interactive SVG Map.
+ * @module ui-map
  */
 
 import { Zone } from './state';

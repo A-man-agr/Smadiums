@@ -1,5 +1,6 @@
 /**
  * TypeScript Typings for Smadiums GenAI Integration.
+ * @module ai-client
  */
 
 export function generateContent(
