@@ -3,7 +3,8 @@
  * Bootstraps modules and initializes reactive subscriptions.
  */
 
-import { subscribe, getState, startSimulator, addLog } from './state.js';
+import { subscribe, getState, addLog } from './state.js';
+import { startSimulator } from './simulator.js';
 import { initUI, render } from './ui-render.js';
 
 window.addEventListener('DOMContentLoaded', () => {
