@@ -43,12 +43,14 @@ Unlike static stadium apps, Smadiums combines **real-time sensor telemetry** wit
 
 ## ⚽ Chosen Vertical
 
-**Vertical**: *Stadium Operations, Accessibility & Fan Tournament Experience*
-The solution provides a dual-interface console addressing both operational command-and-control and spectator-facing experience optimization.
+**Vertical**: *Stadium Operations, Accessibility & Fan Tournament Experience*  
+The solution provides a dual-interface console addressing:
+1. **Fan Experience Portal (Mobile-First)**: High-accessibility, multilingual AI wayfinding concierge, and live food/restroom queue optimization guides.
+2. **Operations Control Center (Desktop Dashboard)**: 3D holographic crowd density telemetry grids, predictive flow alerts, automated AI incident response plans, and real-time sustainability optimization strategies.
 
 ---
 
-## 🛠️ Architecture & System Logic
+## 🛠️ Approach & System Logic
 
 Smadiums is built as a zero-dependency, ultra-lightweight **Single Page Application (SPA)** using **Semantic HTML5**, **Vanilla CSS**, and **Modular ES6 JavaScript**.
 
@@ -108,7 +110,7 @@ The volunteer roster is integrated into the incident lifecycle. When an incident
 
 ---
 
-## 🎯 Hackathon Parameter Compliance
+## 🎯 Hackathon Parameter Checklist
 
 ### 💻 Code Quality (Structure, Readability, Maintainability)
 * **Modular ES6 Architecture**: 10 focused, single-purpose modules following SOLID and Separation of Concerns.
@@ -144,7 +146,7 @@ The volunteer roster is integrated into the incident lifecycle. When an incident
 
 ---
 
-## 📝 Assumptions
+## 📝 Assumptions Made
 
 1. **Local Telemetry Simulation**: Queue times and crowd densities are simulated via randomized fluctuations to model match-day dynamics.
 2. **Web Speech API**: Voice features assume browser support (Chrome, Edge, Safari).
@@ -154,14 +156,22 @@ The volunteer roster is integrated into the incident lifecycle. When an incident
 
 ## 🏁 Getting Started
 
-### Local Development
+### Local Serve
+Start the production server:
 ```bash
-npm start          # Start production server at http://localhost:3000
-npm test           # Run 15 automated test assertions
+npm start
+```
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+### Test Runner
+Run automated tests in the terminal:
+```bash
+npm test
 ```
 
-### Docker Build
+### Docker Compilation
+To package the app:
 ```bash
 docker build -t smadiums-app .
 ```
-*Tests execute during the build phase — a failure prevents compilation.*
+*(Tests will automatically execute during the build phase; a test failure prevents compilation).*
