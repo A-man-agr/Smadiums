@@ -4,11 +4,11 @@
  * @module ui-render
  */
 
-import { getState, addLog, saveSettings, updateState, addIncident } from './state.js';
+import { getState, saveSettings, updateState, addIncident } from './state.js';
 import { escapeHTML } from './sanitizer.js';
 import { setupMapListeners, updateSVGMapColors } from './ui-map.js';
-import { renderChat, speakTextTextToSpeech, handleVoiceInput } from './ui-chat.js';
-import { debounce, playTone, announceToScreenReader } from './utils.js';
+import { renderChat, handleVoiceInput, handleChatSubmit } from './ui-chat.js';
+import { debounce, playTone, announceToScreenReader, trapFocus } from './utils.js';
 
 // Sub-component imports for modular architecture
 import { renderIncidents } from './ui-incidents.js';
@@ -257,7 +257,7 @@ function bindChatControls() {
   el.refreshEcoBtn.addEventListener('click', () => {
     generateSustainabilityPlan(getState(), el.ecoContainer);
   });
-  el.chatForm.addEventListener('submit', handleChatSubmit);
+  el.chatForm.addEventListener('submit', (e) => handleChatSubmit(e, el.chatInput, el.chatMessages));
 
   el.speakInputBtn.addEventListener('click', () => {
     handleVoiceInput(el.speakInputBtn, el.chatInput, el.chatForm, getState().settings.selectedLanguage, announceToScreenReader);
@@ -328,31 +328,7 @@ function updateAccessibilityThemeClasses(theme) {
   el.body.classList.add(`theme-${theme === 'light' ? 'light' : theme === 'high-contrast' ? 'high-contrast' : 'dark'}`);
 }
 
-/**
- * Trap tab key focus inside modal containers for WCAG compliance.
- * @param {HTMLElement} modal - Modal container element
- */
-function trapFocus(modal) {
-  const focusable = modal.querySelectorAll('input, button, select, [tabindex="0"]');
-  if (!focusable.length) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-
-  modal.addEventListener('keydown', (e) => {
-    if (e.key !== 'Tab') return;
-    if (e.shiftKey) {
-      if (document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else {
-      if (document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  });
-}
+// trapFocus is now imported from utils.js for reuse across all modals
 
 // ---------------------------------------------------------------------------
 // Reactive render function
@@ -418,72 +394,4 @@ function renderLogs(logs) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Chat handling
-// ---------------------------------------------------------------------------
-
-/**
- * Handle fan chat submission to GenAI / mock local concierge.
- * @param {Event} e - Form submission event
- */
-async function handleChatSubmit(e) {
-  e.preventDefault();
-  const text = el.chatInput.value.trim();
-  if (text === '') return;
-
-  playTone(700, 0.1);
-  el.chatInput.value = '';
-
-  const { detectPromptInjection } = await import('./sanitizer.js');
-  const { addChatMessage } = await import('./state.js');
-
-  addChatMessage('user', text);
-
-  // Prompt injection validation
-  if (detectPromptInjection(text)) {
-    addLog('Chat query blocked: Potential Prompt Injection.', 'error');
-    setTimeout(() => {
-      addChatMessage('ai', '⚠️ **Security Alert:** Your query was blocked by the Smadiums Prompt Injection Gateway. System override instructions are restricted. Please query stadium navigation or accessibility features.');
-    }, 200);
-    return;
-  }
-
-  // Show typing indicator
-  const loaderId = `loader_${Date.now()}`;
-  const loaderBubble = document.createElement('div');
-  loaderBubble.id = loaderId;
-  loaderBubble.className = 'chat-bubble sender-ai typing-msg';
-  loaderBubble.innerHTML = `
-    <div class="typing-loader">
-      <span></span><span></span><span></span>
-    </div>`;
-  el.chatMessages.appendChild(loaderBubble);
-  el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
-
-  try {
-    const { generateContent } = await import('./ai-client.js');
-    const aiResponse = await generateContent('chat', {
-      message: text,
-      language: getState().settings.selectedLanguage
-    });
-
-    const loaderEl = document.getElementById(loaderId);
-    if (loaderEl) loaderEl.remove();
-
-    addChatMessage('ai', aiResponse);
-    playTone(900, 0.1);
-
-    if (getState().settings.soundFeedback) {
-      speakTextTextToSpeech(aiResponse);
-    }
-  } catch (err) {
-    console.error('Chat error:', err);
-    const loaderEl = document.getElementById(loaderId);
-    if (loaderEl) loaderEl.remove();
-
-    addChatMessage('ai', 'I apologize, but I am experiencing issues retrieving updates right now. Please seek a stadium steward at the closest Guest Information Pod.');
-  }
-}
-
-// Re-export utilities for backward compatibility
-export { playTone, speakTextTextToSpeech };
+// handleChatSubmit is now imported from ui-chat.js — all chat logic is consolidated there

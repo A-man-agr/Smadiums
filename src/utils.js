@@ -79,3 +79,31 @@ export function announceToScreenReader(message) {
   }
   announcer.textContent = message;
 }
+
+/**
+ * Trap tab key focus inside modal containers for WCAG 2.1 AA compliance.
+ * Prevents focus from escaping modals/dialogs when using keyboard navigation.
+ * @param {HTMLElement} modal - Modal container element to trap focus within
+ * @returns {void}
+ */
+export function trapFocus(modal) {
+  const focusable = modal.querySelectorAll('input, button, select, [tabindex="0"]');
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  modal.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+}

@@ -1,11 +1,14 @@
 /**
  * UI Chat and Speech Component for Smadiums.
- * Handles multilingual messaging display, Text-to-Speech (TTS), and Speech-to-Text (STT) integrations.
+ * Handles multilingual messaging display, Text-to-Speech (TTS), Speech-to-Text (STT),
+ * and the fan concierge chat submission pipeline including GenAI integration.
  * @module ui-chat
  */
 
-import { sanitizeAIResponse, escapeHTML } from './sanitizer.js';
+import { sanitizeAIResponse, escapeHTML, detectPromptInjection } from './sanitizer.js';
 import { playTone } from './utils.js';
+import { getState, addChatMessage, addLog } from './state.js';
+import { generateContent } from './ai-client.js';
 
 /**
  * Render the chat bubbles inside the Fan Concierge.
@@ -132,4 +135,72 @@ export function handleVoiceInput(speakInputBtn, chatInput, chatForm, selectedLan
   };
 
   rec.start();
+}
+
+// ---------------------------------------------------------------------------
+// Chat Submission Pipeline
+// ---------------------------------------------------------------------------
+
+/**
+ * Handle fan chat form submission to GenAI concierge or mock local engine.
+ * Validates input, applies prompt injection defense, shows typing indicator,
+ * and delegates to the AI client for response generation.
+ * @param {Event} e - Form submission event
+ * @param {HTMLInputElement} chatInput - Chat text input element
+ * @param {HTMLElement} chatMessages - Chat messages container
+ * @returns {Promise<void>}
+ */
+export async function handleChatSubmit(e, chatInput, chatMessages) {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  if (text === '') return;
+
+  playTone(700, 0.1);
+  chatInput.value = '';
+
+  addChatMessage('user', text);
+
+  // Prompt injection validation
+  if (detectPromptInjection(text)) {
+    addLog('Chat query blocked: Potential Prompt Injection.', 'error');
+    setTimeout(() => {
+      addChatMessage('ai', '⚠️ **Security Alert:** Your query was blocked by the Smadiums Prompt Injection Gateway. System override instructions are restricted. Please query stadium navigation or accessibility features.');
+    }, 200);
+    return;
+  }
+
+  // Show typing indicator
+  const loaderId = `loader_${Date.now()}`;
+  const loaderBubble = document.createElement('div');
+  loaderBubble.id = loaderId;
+  loaderBubble.className = 'chat-bubble sender-ai typing-msg';
+  loaderBubble.innerHTML = `
+    <div class="typing-loader">
+      <span></span><span></span><span></span>
+    </div>`;
+  chatMessages.appendChild(loaderBubble);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  try {
+    const aiResponse = await generateContent('chat', {
+      message: text,
+      language: getState().settings.selectedLanguage
+    });
+
+    const loaderEl = document.getElementById(loaderId);
+    if (loaderEl) loaderEl.remove();
+
+    addChatMessage('ai', aiResponse);
+    playTone(900, 0.1);
+
+    if (getState().settings.soundFeedback) {
+      speakTextTextToSpeech(aiResponse);
+    }
+  } catch (err) {
+    console.error('Chat error:', err);
+    const loaderEl = document.getElementById(loaderId);
+    if (loaderEl) loaderEl.remove();
+
+    addChatMessage('ai', 'I apologize, but I am experiencing issues retrieving updates right now. Please seek a stadium steward at the closest Guest Information Pod.');
+  }
 }
