@@ -1447,3 +1447,174 @@ body.theme-high-contrast .send-btn {
     grid-template-columns: 1fr;
   }
 }
+
+/* Dynamic Match Ticker styling */
+.match-ticker {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--card-border);
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 500px;
+  flex: 1;
+}
+
+.ticker-content {
+  display: flex;
+  gap: 2rem;
+  white-space: nowrap;
+  animation: ticker-slide 25s linear infinite;
+}
+
+.ticker-item {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ticker-item.live {
+  color: var(--primary-accent);
+  font-weight: 600;
+}
+
+@keyframes ticker-slide {
+  0% { transform: translateX(80%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Volunteer Shifts list styling */
+.volunteer-header {
+  margin-top: 0.5rem;
+}
+
+.active-vol-pill {
+  font-size: 0.7rem;
+  background: rgba(58, 141, 255, 0.15);
+  color: #3a8dff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(58, 141, 255, 0.3);
+}
+
+.volunteer-list-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  background: rgba(0,0,0,0.15);
+  border-radius: var(--border-radius-md);
+  padding: 0.75rem;
+  border: 1px solid rgba(255,255,255,0.01);
+}
+
+.vol-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(30, 41, 59, 0.4);
+  padding: 0.5rem;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--card-border);
+}
+
+.vol-status-icon {
+  font-size: 1.1rem;
+}
+
+.vol-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.vol-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.vol-assignment {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.border-top-panel {
+  border-top: 1px solid var(--card-border);
+  padding-top: 1rem;
+}
+
+/* Carbon travel offset calculator styling */
+.carbon-calculator-card {
+  margin-top: 1.5rem;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius-md);
+  padding: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.card-header-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.card-header-inline h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.eco-score-pill {
+  font-size: 0.7rem;
+  background: rgba(6, 214, 160, 0.15);
+  color: var(--primary-accent);
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(6, 214, 160, 0.3);
+  font-weight: bold;
+}
+
+.calc-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.flex-2 {
+  flex: 2;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.calc-select-style {
+  background-color: #0b0f19;
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-color);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.75rem;
+  width: 100%;
+}
+
+.eco-calc-result {
+  background-color: rgba(6, 214, 160, 0.08);
+  border: 1px solid rgba(6, 214, 160, 0.2);
+  border-radius: var(--border-radius-sm);
+  color: var(--primary-accent);
+  padding: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.calc-tip {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}

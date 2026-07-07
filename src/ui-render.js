@@ -7,6 +7,8 @@ import { getState, resolveIncident, updateIncident, addChatMessage, saveSettings
 import { sanitizeAIResponse, escapeHTML, detectPromptInjection } from './sanitizer.js';
 import { generateContent } from './ai-client.js';
 import { runAllTests } from './tests.js';
+import { setupMapListeners, updateSVGMapColors } from './ui-map.js';
+import { renderChat, speakTextTextToSpeech, handleVoiceInput } from './ui-chat.js';
 
 /**
  * Debounce helper to delay costly layout/re-render operations.
@@ -77,6 +79,10 @@ export function initUI() {
   el.navFromSelect = document.getElementById('nav-from');
   el.navToSelect = document.getElementById('nav-to');
   el.navRouteOutput = document.getElementById('nav-route-output');
+  
+  // Carbon Calculator
+  el.calcModeSelect = document.getElementById('calc-mode');
+  el.ecoSavedVal = document.getElementById('eco-saved-val');
   
   // Dev & Testing panel
   el.devToggle = document.getElementById('dev-panel-toggle');
@@ -174,7 +180,7 @@ export function initUI() {
   });
 
   // Map zone clicking handles detail display or Navigation routing
-  setupMapListeners();
+  setupMapListeners(calculateWayfindingRoute, el.navToSelect, announceToScreenReader);
 
   // Sustainability Recommendations
   el.refreshEcoBtn.addEventListener('click', generateSustainabilityPlan);
@@ -183,7 +189,7 @@ export function initUI() {
   el.chatForm.addEventListener('submit', handleChatSubmit);
 
   // Speak input (simulated voice transcription / Web Speech API)
-  el.speakInputBtn.addEventListener('click', handleVoiceInput);
+  el.speakInputBtn.addEventListener('click', () => handleVoiceInput(el.speakInputBtn, el.chatInput, el.chatForm, getState().settings.selectedLanguage, announceToScreenReader));
 
   // Suggest buttons (pre-filled chat messages)
   el.suggestBtns.forEach(btn => {
@@ -218,6 +224,34 @@ export function initUI() {
     });
   }
 
+  // Keyboard accessibility hotkeys (A11y requirements)
+  document.addEventListener('keydown', (e) => {
+    // Alt + M: Focus Map SVG
+    if (e.altKey && e.key.toLowerCase() === 'm') {
+      e.preventDefault();
+      const mapSvg = document.getElementById('stadium-svg');
+      if (mapSvg) {
+        mapSvg.focus();
+        announceToScreenReader('Focused stadium map sensor grid.');
+      }
+    }
+    // Alt + C: Focus Fan Chat Input
+    if (e.altKey && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      if (el.chatInput) {
+        el.chatInput.focus();
+        announceToScreenReader('Focused fan concierge chat input.');
+      }
+    }
+    // Alt + S: Toggle Settings Modal
+    if (e.altKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      if (el.settingsBtn) {
+        el.settingsBtn.click();
+      }
+    }
+  });
+
   // Simulator Triggers
   el.simBottleneckBtn.addEventListener('click', () => {
     import('./state.js').then(m => m.addIncident({
@@ -251,6 +285,20 @@ export function initUI() {
   updateAccessibilityThemeClasses(state.settings.theme);
   document.documentElement.style.setProperty('--base-font-size', `${state.settings.textSize}%`);
   if (state.settings.dyslexicFont) el.body.classList.add('font-dyslexic');
+
+  // Bind Carbon Calculator
+  if (el.calcModeSelect && el.ecoSavedVal) {
+    el.calcModeSelect.addEventListener('change', () => {
+      const mode = el.calcModeSelect.value;
+      let savedText = '1.2 kg CO₂';
+      if (mode === 'metro') savedText = '1.2 kg CO₂';
+      else if (mode === 'rideshare') savedText = '0.1 kg CO₂';
+      else if (mode === 'walking') savedText = '2.4 kg CO₂ (Zero Carbon)';
+      el.ecoSavedVal.textContent = savedText;
+      playTone(660, 0.05);
+      announceToScreenReader(`Recalculated carbon offset. Saved ${savedText}.`);
+    });
+  }
 }
 
 /**
@@ -319,8 +367,8 @@ function handleRunTests() {
   playTone(880, 0.1);
   el.testResultsList.innerHTML = '<li class="loading">Executing test assertions...</li>';
   
-  setTimeout(() => {
-    const results = runAllTests();
+  setTimeout(async () => {
+    const results = await runAllTests();
     el.testResultsList.innerHTML = '';
     
     let passedCount = 0;
@@ -372,7 +420,7 @@ export function render(state) {
   updateSVGMapColors(state.zones);
 
   // Render Fan Chat History
-  renderChat(state.chatHistory);
+  renderChat(state.chatHistory, el.chatMessages);
 }
 
 function toggleAlertClasses(container, isAlerting) {
@@ -383,40 +431,7 @@ function toggleAlertClasses(container, isAlerting) {
   }
 }
 
-/**
- * Setup map path/shapes selectors and bind hover / click indicators.
- */
-function setupMapListeners() {
-  const mapSvg = document.getElementById('stadium-svg');
-  if (!mapSvg) return;
-
-  mapSvg.addEventListener('click', (e) => {
-    const target = e.target.closest('[data-zone]');
-    if (!target) return;
-    
-    const zoneKey = target.dataset.zone;
-    const state = getState();
-    const zone = state.zones[zoneKey];
-    if (!zone) return;
-
-    playTone(520, 0.08);
-
-    if (state.activePersona === 'staff') {
-      // In Staff View, display Zone inspection details in Logs
-      import('./state.js').then(m => m.addLog(
-        `Inspected ${zone.name}: Wait Time: ${zone.waitTime || 'N/A'}m | Crowd Density: ${zone.crowdDensity || 'N/A'}% | Status: ${zone.status.toUpperCase()}`,
-        zone.status === 'critical' ? 'error' : zone.status === 'warning' ? 'warning' : 'info'
-      ));
-    } else {
-      // In Fan View, feed this into navigation selection
-      if (zoneKey.startsWith('gate') || zoneKey.startsWith('concession') || zoneKey === 'transitHub') {
-        el.navToSelect.value = zoneKey;
-        calculateWayfindingRoute();
-        announceToScreenReader(`Selected destination: ${zone.name}`);
-      }
-    }
-  });
-}
+// Map listeners managed by ui-map.js
 
 /**
  * Render the incidents queue on the dashboard.
@@ -550,103 +565,9 @@ function renderLogs(logs) {
   });
 }
 
-/**
- * Update the colors of SVG Map paths dynamically.
- */
-function updateSVGMapColors(zones) {
-  for (let zoneKey in zones) {
-    const zone = zones[zoneKey];
-    // Find SVG element matching the data-zone attribute
-    const svgEl = document.querySelector(`[data-zone="${zoneKey}"]`);
-    if (svgEl) {
-      // Clear status classes
-      svgEl.classList.remove('zone-optimal', 'zone-warning', 'zone-critical');
-      svgEl.classList.add(`zone-${zone.status}`);
-      
-      // Update interactive title tooltip if it exists
-      const titleEl = svgEl.querySelector('title');
-      if (titleEl) {
-        let details = `${zone.name}\nStatus: ${zone.status.toUpperCase()}`;
-        if (zone.waitTime !== undefined) details += `\nWait Time: ${zone.waitTime}m`;
-        if (zone.crowdDensity !== undefined) details += `\nCrowd Density: ${zone.crowdDensity}%`;
-        titleEl.textContent = details;
-      }
-    }
-  }
-}
+// Map styling managed by ui-map.js
 
-/**
- * Render the chat bubbles in the Fan Concierge.
- */
-function renderChat(chat) {
-  const scrollPos = el.chatMessages.scrollTop;
-  const isAtBottom = el.chatMessages.scrollHeight - el.chatMessages.clientHeight <= el.chatMessages.scrollTop + 30;
-
-  el.chatMessages.innerHTML = '';
-  
-  chat.forEach(msg => {
-    const bubble = document.createElement('div');
-    bubble.className = `chat-bubble sender-${msg.sender}`;
-    
-    // AI messages support formatted Markdown, User messages are pure sanitized text
-    const textContent = msg.sender === 'ai' ? sanitizeAIResponse(msg.text) : escapeHTML(msg.text);
-    
-    bubble.innerHTML = `
-      <div class="bubble-content">${textContent}</div>
-      <div class="bubble-meta">
-        <span>${msg.timestamp}</span>
-        ${msg.sender === 'ai' ? `<button class="tts-btn" aria-label="Speak text" data-text="${escapeHTML(msg.text)}">🔊</button>` : ''}
-      </div>
-    `;
-
-    const ttsBtn = bubble.querySelector('.tts-btn');
-    if (ttsBtn) {
-      ttsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        speakTextTextToSpeech(ttsBtn.dataset.text);
-      });
-    }
-
-    el.chatMessages.appendChild(bubble);
-  });
-
-  // Restore scroll or scroll to bottom
-  if (isAtBottom) {
-    el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
-  } else {
-    el.chatMessages.scrollTop = scrollPos;
-  }
-}
-
-/**
- * TTS Helper. Speaks text out loud using Web Speech Synthesis API.
- */
-function speakTextTextToSpeech(text) {
-  if ('speechSynthesis' in window) {
-    // If speaking, cancel it
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-      return;
-    }
-    // Remove markdown symbols from speech
-    const cleanText = text.replace(/[\*\#\_]/g, '');
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    
-    // Attempt to match the reader language if possible
-    const firstWords = cleanText.toLowerCase();
-    if (firstWords.includes('puerta') || firstWords.includes('hola') || firstWords.includes('baño')) {
-      utterance.lang = 'es-ES';
-    } else if (firstWords.includes('bonjour') || firstWords.includes('merci')) {
-      utterance.lang = 'fr-FR';
-    } else {
-      utterance.lang = 'en-US';
-    }
-
-    window.speechSynthesis.speak(utterance);
-  } else {
-    alert('Audio synthesis is not supported in this browser.');
-  }
-}
+// Chat view and Text-to-Speech managed by ui-chat.js
 
 /**
  * Handle fan chat submission to Gemini / Mock Local Concierge.
@@ -709,47 +630,7 @@ async function handleChatSubmit(e) {
   }
 }
 
-/**
- * Voice dictation (Speech to Text simulation).
- */
-function handleVoiceInput() {
-  playTone(880, 0.05);
-  const recognition = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-  if (!recognition) {
-    // If not supported, simulate a voice input
-    el.chatInput.value = 'Where is the nearest wheelchair elevator?';
-    el.chatInput.focus();
-    announceToScreenReader('Voice recognition not supported. Simulated: Where is the nearest wheelchair elevator?');
-    return;
-  }
-
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new SpeechRec();
-  rec.lang = getState().settings.selectedLanguage === 'es' ? 'es-ES' : 'en-US';
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-
-  el.speakInputBtn.classList.add('recording');
-  announceToScreenReader('Voice recording active. Please speak now.');
-
-  rec.onresult = (event) => {
-    const resultText = event.results[0][0].transcript;
-    el.chatInput.value = resultText;
-    el.speakInputBtn.classList.remove('recording');
-    el.chatForm.requestSubmit();
-  };
-
-  rec.onerror = (e) => {
-    console.error('Speech recognition error:', e);
-    el.speakInputBtn.classList.remove('recording');
-  };
-
-  rec.onend = () => {
-    el.speakInputBtn.classList.remove('recording');
-  };
-
-  rec.start();
-}
+// Speech-to-Text dictation managed by ui-chat.js
 
 /**
  * Generate Eco Recommendations from telemetry.

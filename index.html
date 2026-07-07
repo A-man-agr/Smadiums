@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smadiums - FIFA World Cup 2026 Stadium Operations & Fan Experience Hub</title>
   <meta name="description" content="GenAI-enabled solution enhancing stadium operations, crowd navigation, and tournament experiences for FIFA World Cup 2026.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://generativelanguage.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; script-src 'self' 'unsafe-inline';">
   <link rel="stylesheet" href="style.css">
   <!-- Load modern sleek fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,6 +23,16 @@
       <span class="fifa-brand-pill">FIFA World Cup 2026</span>
       <h1 class="header-title">SMADIUMS</h1>
       <span class="subtle-status">Sensor Grid Active</span>
+    </div>
+    
+    <!-- Dynamic World Cup Match Ticker -->
+    <div class="match-ticker" aria-label="Live FIFA Matches Ticker">
+      <div class="ticker-content" id="ticker-content">
+        <span class="ticker-item live">⚡ LIVE: Group A — MEX 2 - 1 CAN (78')</span>
+        <span class="ticker-item">⚽ Group B — USA 1 - 0 ENG (40')</span>
+        <span class="ticker-item">🏆 Group C — ARG 0 - 0 FRA (HT)</span>
+        <span class="ticker-item">⚡ Group D — BRA 3 - 0 JPN (FT)</span>
+      </div>
     </div>
 
     <!-- Toggle Persona Controller -->
@@ -66,32 +77,32 @@
     <section class="telemetry-grid" aria-label="Live Stadium Metrics">
       <div class="telemetry-card" id="card_occupancy">
         <h3>Occupancy</h3>
-        <p class="telemetry-value" id="tele_occupancy">0</p>
+        <p class="telemetry-value" id="tele_occupancy" aria-live="polite">0</p>
         <span class="telemetry-unit">/ 82,500 Spectators</span>
       </div>
       <div class="telemetry-card" id="card_gate_wait">
         <h3>Avg Gate Wait</h3>
-        <p class="telemetry-value" id="tele_gate_wait">0m</p>
+        <p class="telemetry-value" id="tele_gate_wait" aria-live="polite">0m</p>
         <span class="telemetry-unit">Optimal &lt; 20m</span>
       </div>
       <div class="telemetry-card" id="card_concession_wait">
         <h3>Concessions Wait</h3>
-        <p class="telemetry-value" id="tele_concession_wait">0m</p>
+        <p class="telemetry-value" id="tele_concession_wait" aria-live="polite">0m</p>
         <span class="telemetry-unit">Halftime peak active</span>
       </div>
       <div class="telemetry-card" id="card_energy">
         <h3>Green Power</h3>
-        <p class="telemetry-value" id="tele_energy">0%</p>
+        <p class="telemetry-value" id="tele_energy" aria-live="polite">0%</p>
         <span class="telemetry-unit">Solar & Wind feeds</span>
       </div>
       <div class="telemetry-card" id="card_water">
         <h3>Water Conserved</h3>
-        <p class="telemetry-value" id="tele_water">0 L</p>
+        <p class="telemetry-value" id="tele_water" aria-live="polite">0 L</p>
         <span class="telemetry-unit">Low-flow vacuum valves</span>
       </div>
       <div class="telemetry-card" id="card_recycle">
         <h3>Recycling Rate</h3>
-        <p class="telemetry-value" id="tele_recycle">0%</p>
+        <p class="telemetry-value" id="tele_recycle" aria-live="polite">0%</p>
         <span class="telemetry-unit">FIFA green target: 90%</span>
       </div>
     </section>
@@ -240,7 +251,28 @@
 
       <!-- Right Column: Sustainability & Event Logs -->
       <section class="view-panel panel-side" aria-labelledby="eco-heading">
-        <div class="panel-header">
+        <div class="panel-header volunteer-header">
+          <h2 id="vol-heading">Volunteer Shift Dispatch</h2>
+          <span class="active-vol-pill" id="vol-active-count">14 Active Helpers</span>
+        </div>
+        <div class="volunteer-list-box" id="volunteer-roster" aria-labelledby="vol-heading">
+          <div class="vol-item">
+            <span class="vol-status-icon">🙋‍♂️</span>
+            <div class="vol-info">
+              <span class="vol-name">Jean-Luc (FR / EN)</span>
+              <span class="vol-assignment">Gate B • Queue Director</span>
+            </div>
+          </div>
+          <div class="vol-item">
+            <span class="vol-status-icon">🙋‍♀️</span>
+            <div class="vol-info">
+              <span class="vol-name">Sofia (ES / EN)</span>
+              <span class="vol-assignment">Sector 300 • Accessibility Escort</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-header border-top-panel">
           <h2 id="eco-heading">Eco-Optimizations</h2>
           <button class="ops-btn secondary-ops-btn tiny-btn" id="refresh-eco-btn">↻ Analyze</button>
         </div>
@@ -299,6 +331,29 @@
 
         <div class="wayfinding-map-tip">
           <p>💡 **Quick Select**: Click on any Gate (A/B/C/D) or Food Court (F1/F2/F3/F4) in the interactive map above to quickly set it as your target destination!</p>
+        </div>
+
+        <!-- Sustainability Carbon Travel Calculator -->
+        <div class="carbon-calculator-card">
+          <div class="panel-header card-header-inline">
+            <h3>Fan Eco-Transit Footprint</h3>
+            <span class="eco-score-pill">Level A+</span>
+          </div>
+          <div class="calc-row">
+            <div class="form-group flex-2">
+              <label for="calc-mode">Travel Mode</label>
+              <select id="calc-mode" class="calc-select-style">
+                <option value="metro" selected>Subway / Metro Bus (Greenest)</option>
+                <option value="rideshare">Rideshare / Taxi (Standard)</option>
+                <option value="walking">Walking / Cycling (Zero Carbon)</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label>Carbon Saved</label>
+              <div class="eco-calc-result" id="eco-saved-val">1.2 kg CO₂</div>
+            </div>
+          </div>
+          <p class="calc-tip">🌍 Subway offsets individual transit impacts for FIFA 2026!</p>
         </div>
       </section>
 

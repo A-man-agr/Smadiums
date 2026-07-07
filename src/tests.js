@@ -164,19 +164,74 @@ test('State: Chat memory capping prevents DOM growth while keeping initial greet
   }
 });
 
+// 5. High-Fidelity Mock Fallback and Network Error Resiliency
+test('AI Client: Gracefully falls back to offline rules engine during API failures', async () => {
+  const isBrowser = typeof window !== 'undefined';
+  const targetObj = isBrowser ? window : global;
+  const originalFetch = targetObj.fetch;
+  
+  targetObj.fetch = () => Promise.reject(new Error('Network disconnected'));
+
+  try {
+    const { generateContent } = await import('./ai-client.js');
+    const response = await generateContent('chat', { message: 'Show me concession 2 lines', language: 'en' });
+    
+    // Response should still return high-quality content via local rules engine fallback
+    if (!response || typeof response !== 'string' || !response.includes('Concession')) {
+      throw new Error('Offline fallback failed to generate response or didn\'t output concession details.');
+    }
+  } finally {
+    targetObj.fetch = originalFetch;
+  }
+});
+
+// 6. Project Code Module Import & Metric Assertions
+test('Project Structure: Verifies core ES6 code files compile and import successfully', () => {
+  if (typeof stateManager.getState !== 'function') {
+    throw new Error('stateManager.getState is not resolved correctly.');
+  }
+  if (typeof detectPromptInjection !== 'function') {
+    throw new Error('detectPromptInjection is not resolved correctly.');
+  }
+});
+
+// 7. Accessibility Settings Storage Verification
+test('State: Settings configuration saves and updates accessible metrics', () => {
+  const customSettings = {
+    theme: 'high-contrast',
+    textSize: 120,
+    dyslexicFont: true,
+    soundFeedback: true,
+    selectedLanguage: 'es'
+  };
+
+  stateManager.saveSettings(customSettings);
+  const updatedSettings = stateManager.getState().settings;
+
+  if (updatedSettings.theme !== 'high-contrast') {
+    throw new Error('Theme setting failed to update.');
+  }
+  if (updatedSettings.textSize !== 120) {
+    throw new Error('Text size setting failed to update.');
+  }
+  if (updatedSettings.selectedLanguage !== 'es') {
+    throw new Error('Language setting failed to update.');
+  }
+});
+
 // ----------------------------------------------------
 // RUNNER FUNCTION
 // ----------------------------------------------------
 
 /**
  * Execute all registered tests and return reporting results.
- * @returns {Array<{name: string, status: 'passed' | 'failed', error?: string}>} Test results
+ * @returns {Promise<Array<{name: string, status: 'passed' | 'failed', error?: string}>>} Test results
  */
-export function runAllTests() {
+export async function runAllTests() {
   const results = [];
   for (let t of tests) {
     try {
-      t.runFn();
+      await t.runFn();
       results.push({ name: t.name, status: 'passed' });
     } catch (e) {
       results.push({ name: t.name, status: 'failed', error: e.message });
@@ -187,10 +242,11 @@ export function runAllTests() {
 
 /**
  * Log test results cleanly to console (for development verification).
+ * @returns {Promise<boolean>} Whether all tests passed
  */
-export function runAndLogTests() {
+export async function runAndLogTests() {
   console.log('--- STARTING SMADIUMS TEST RUNNER ---');
-  const results = runAllTests();
+  const results = await runAllTests();
   let passedCount = 0;
   
   results.forEach(r => {

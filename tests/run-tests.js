@@ -4,7 +4,7 @@
 import { runAndLogTests } from '../src/tests.js';
 
 try {
-  const success = runAndLogTests();
+  const success = await runAndLogTests();
   if (success) {
     console.log('✅ All tests passed successfully!');
     process.exit(0);
