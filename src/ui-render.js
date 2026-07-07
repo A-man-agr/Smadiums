@@ -513,6 +513,9 @@ function renderIncidents(incidents) {
             <button class="ops-btn success-ops-btn resolve-btn" data-id="${inc.id}">
               ✓ Deploy Plan & Resolve Incident
             </button>
+            <button class="ops-btn primary-ops-btn broadcast-announcement-btn" data-zone="${inc.zone}" data-id="${inc.id}">
+              🔊 Voice Broadcast Alert
+            </button>
             <button class="ops-btn secondary-ops-btn draft-plan-btn" data-id="${inc.id}">
               ↻ Re-draft
             </button>
@@ -546,6 +549,25 @@ function renderIncidents(incidents) {
       resolveBtn.addEventListener('click', () => {
         playTone(440, 0.2);
         resolveIncident(inc.id);
+      });
+    }
+
+    const broadcastBtn = item.querySelector('.broadcast-announcement-btn');
+    if (broadcastBtn) {
+      broadcastBtn.addEventListener('click', () => {
+        playTone(660, 0.1);
+        setTimeout(() => playTone(880, 0.15), 100);
+        const zoneKey = broadcastBtn.dataset.zone;
+        let warningText = 'Attention spectators. Please follow stewards instructions in this area.';
+        if (zoneKey === 'gateC') {
+          warningText = 'Gate C is experiencing high wait times. For faster entry, please walk to Gate D where wait times are under 10 minutes.';
+        } else if (zoneKey === 'sector100' || zoneKey === 'sector300') {
+          warningText = 'Attention spectators. High heat levels reported. Roaming hydration stewards are distributing water. Stay hydrated.';
+        } else if (zoneKey === 'transitHub') {
+          warningText = 'Transit warning. Metro shuttle buses are delayed due to loop traffic. Spectators are advised to use the Green Ribbon Trail to walk to the Metro station.';
+        }
+        speakTextTextToSpeech(warningText);
+        import('./state.js').then(m => m.addLog(`AI Voice Broadcast Alert deployed for ${zoneKey}.`, 'info'));
       });
     }
 
