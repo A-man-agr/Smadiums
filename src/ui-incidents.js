@@ -6,8 +6,8 @@
 
 import { generateContent } from './ai-client.js';
 import { sanitizeAIResponse, escapeHTML } from './sanitizer.js';
-import { updateIncident, addLog, resolveIncident } from './state.js';
-import { speakTextTextToSpeech } from './ui-chat.js';
+import { updateIncident, addLog, resolveIncident, getState } from './state.js';
+import { speakText } from './ui-chat.js';
 import { playTone } from './utils.js';
 
 /**
@@ -31,7 +31,7 @@ export function handleBroadcast(zoneKey) {
   setTimeout(() => playTone(880, 0.15), 100);
 
   const warningText = ZONE_BROADCASTS[zoneKey] || 'Attention spectators. Please follow stewards instructions in this area.';
-  speakTextTextToSpeech(warningText);
+  speakText(warningText);
   addLog(`AI Voice Broadcast Alert deployed for ${zoneKey}.`, 'info');
 }
 
@@ -44,8 +44,6 @@ export async function triggerIncidentPlanDraft(incidentId) {
   playTone(800, 0.1);
   updateIncident(incidentId, { status: 'drafting' });
 
-  // Access the live state dynamically
-  const { getState } = await import('./state.js');
   const inc = getState().incidents.find(i => i.id === incidentId);
   if (!inc) return;
 

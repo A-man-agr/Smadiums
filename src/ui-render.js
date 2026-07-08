@@ -17,7 +17,61 @@ import { generateSustainabilityPlan, setupCarbonCalculator } from './ui-sustaina
 import { handleRunTests } from './ui-testing.js';
 import { calculateWayfindingRoute } from './ui-wayfinding.js';
 
-/** Cached DOM element references. */
+/**
+ * @typedef {Object} DOMCache
+ * @property {HTMLElement} body - Document body
+ * @property {HTMLElement} appContainer - Main app wrapper
+ * @property {HTMLInputElement} personaToggle - Staff/fan toggle switch
+ * @property {HTMLElement} personaLabel - Active persona label text
+ * @property {HTMLElement} staffView - Staff dashboard container
+ * @property {HTMLElement} fanView - Fan portal container
+ * @property {HTMLElement} settingsBtn - Settings gear button
+ * @property {HTMLElement} settingsModal - Settings modal overlay
+ * @property {HTMLElement} closeSettings - Modal close button
+ * @property {HTMLFormElement} saveSettingsForm - Settings form element
+ * @property {HTMLInputElement} apiKeyInput - API key text input
+ * @property {HTMLInputElement} soundToggle - Sound feedback checkbox
+ * @property {HTMLSelectElement} themeSelect - Theme dropdown
+ * @property {HTMLInputElement} textSizeSlider - Text size range slider
+ * @property {HTMLElement} textSizeValue - Text size display label
+ * @property {HTMLInputElement} dyslexicToggle - Dyslexic font checkbox
+ * @property {HTMLElement} telemetryOccupancy - Occupancy display
+ * @property {HTMLElement} telemetryGateWait - Gate wait display
+ * @property {HTMLElement} telemetryConcessionWait - Concession wait display
+ * @property {HTMLElement} telemetryEnergy - Energy usage display
+ * @property {HTMLElement} telemetryWater - Water saved display
+ * @property {HTMLElement} telemetryRecycle - Recycling rate display
+ * @property {HTMLElement} incidentsList - Incidents list container
+ * @property {HTMLElement} opsLogs - Operations log terminal
+ * @property {HTMLElement} ecoContainer - Sustainability recommendations panel
+ * @property {HTMLButtonElement} refreshEcoBtn - Refresh eco button
+ * @property {HTMLElement} volunteerRoster - Volunteer roster list
+ * @property {HTMLElement} volActiveCount - Active volunteer count badge
+ * @property {HTMLElement} chatMessages - Chat messages container
+ * @property {HTMLFormElement} chatForm - Chat submission form
+ * @property {HTMLInputElement} chatInput - Chat text input
+ * @property {HTMLButtonElement} speakInputBtn - Voice input mic button
+ * @property {NodeList} suggestBtns - Quick suggestion chip buttons
+ * @property {HTMLElement} fanNavigator - Wayfinding navigation panel
+ * @property {HTMLSelectElement} navFromSelect - Route origin dropdown
+ * @property {HTMLSelectElement} navToSelect - Route destination dropdown
+ * @property {HTMLElement} navRouteOutput - Route result container
+ * @property {HTMLSelectElement} calcModeSelect - Carbon calculator mode dropdown
+ * @property {HTMLElement} ecoSavedVal - Carbon saved value display
+ * @property {HTMLButtonElement} devToggle - Dev panel toggle button
+ * @property {HTMLElement} devPanel - Developer panel container
+ * @property {HTMLButtonElement} runTestsBtn - Test runner trigger button
+ * @property {HTMLElement} testResultsList - Test results display list
+ * @property {HTMLButtonElement} simBottleneckBtn - Bottleneck simulation trigger
+ * @property {HTMLButtonElement} simMedicalBtn - Medical incident simulation trigger
+ * @property {HTMLButtonElement} simTransitBtn - Transit delay simulation trigger
+ * @property {HTMLElement} mapContainer - Stadium map wrapper
+ * @property {HTMLButtonElement} btnView3d - 3D view toggle button
+ * @property {HTMLButtonElement} btnView2d - 2D view toggle button
+ * @property {HTMLElement} settingsError - Inline settings error display
+ */
+
+/** @type {DOMCache} Cached DOM element references to avoid repeated lookups. */
 const el = {};
 
 /**
@@ -100,12 +154,13 @@ export function initUI() {
   bindPersonaSwitcher();
   bindSettingsModal();
   bindAccessibilityControls();
+  bindStaffControls();
   bindDevPanel();
   bindMapControls();
   bindChatControls();
   bindSimulatorTriggers();
   applyInitialAccessibilityState();
-  
+
   // Set up sub-component controllers
   setupCarbonCalculator(el.calcModeSelect, el.ecoSavedVal, announceToScreenReader);
 }
@@ -114,15 +169,21 @@ export function initUI() {
 // Event binding helpers
 // ---------------------------------------------------------------------------
 
+/** Persona label display strings. */
+const PERSONA_LABELS = {
+  staff: 'Operations Control Center',
+  fan: 'Fan Experience Portal'
+};
+
 /** Bind the staff/fan persona toggle switch. */
 function bindPersonaSwitcher() {
   el.personaToggle.addEventListener('change', (e) => {
     const isFan = e.target.checked;
     const activePersona = isFan ? 'fan' : 'staff';
     updateState({ activePersona });
-    el.personaLabel.textContent = isFan ? 'Fan Experience Portal' : 'Operations Control Center';
+    el.personaLabel.textContent = PERSONA_LABELS[activePersona];
 
-    announceToScreenReader(`Switched view to ${el.personaLabel.textContent}`);
+    announceToScreenReader(`Switched view to ${PERSONA_LABELS[activePersona]}`);
 
     el.staffView.classList.toggle('hidden', isFan);
     el.fanView.classList.toggle('hidden', !isFan);
@@ -146,8 +207,13 @@ function bindSettingsModal() {
     el.settingsBtn.focus();
   });
 
+  // Inline error display element for settings validation
+  el.settingsError = document.getElementById('settings-error') || createSettingsErrorEl();
+
   el.saveSettingsForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    el.settingsError.textContent = '';
+    el.settingsError.classList.remove('visible');
     try {
       saveSettings({
         geminiApiKey: el.apiKeyInput.value.trim(),
@@ -157,11 +223,26 @@ function bindSettingsModal() {
       playTone(600, 0.15);
     } catch (err) {
       playTone(300, 0.2);
-      alert(err.message);
+      el.settingsError.textContent = err.message;
+      el.settingsError.classList.add('visible');
     }
   });
 
   trapFocus(el.settingsModal);
+}
+
+/**
+ * Create an inline error display element for the settings modal.
+ * @returns {HTMLElement} Error display paragraph element
+ */
+function createSettingsErrorEl() {
+  const errEl = document.createElement('p');
+  errEl.id = 'settings-error';
+  errEl.className = 'settings-error-msg';
+  errEl.setAttribute('role', 'alert');
+  errEl.setAttribute('aria-live', 'polite');
+  el.saveSettingsForm.appendChild(errEl);
+  return errEl;
 }
 
 /** Bind accessibility theme, text size, and dyslexia font controls. */
@@ -252,11 +333,15 @@ function bindMapControls() {
   });
 }
 
-/** Bind chat form submission, voice input, and suggestion chips. */
-function bindChatControls() {
+/** Bind staff-specific control buttons (eco refresh). */
+function bindStaffControls() {
   el.refreshEcoBtn.addEventListener('click', () => {
     generateSustainabilityPlan(getState(), el.ecoContainer);
   });
+}
+
+/** Bind chat form submission, voice input, and suggestion chips. */
+function bindChatControls() {
   el.chatForm.addEventListener('submit', (e) => handleChatSubmit(e, el.chatInput, el.chatMessages));
 
   el.speakInputBtn.addEventListener('click', () => {
@@ -327,9 +412,6 @@ function updateAccessibilityThemeClasses(theme) {
   el.body.classList.remove('theme-dark', 'theme-light', 'theme-high-contrast');
   el.body.classList.add(`theme-${theme === 'light' ? 'light' : theme === 'high-contrast' ? 'high-contrast' : 'dark'}`);
 }
-
-// trapFocus is now imported from utils.js for reuse across all modals
-
 // ---------------------------------------------------------------------------
 // Reactive render function
 // ---------------------------------------------------------------------------
@@ -337,31 +419,36 @@ function updateAccessibilityThemeClasses(theme) {
 /**
  * Render the entire UI reactively from application state.
  * Called automatically on every state change via the subscription system.
+ * Wrapped in an error boundary to prevent cascading render failures.
  * @param {import('./state').AppState} state - Current application state snapshot
  */
 export function render(state) {
-  // Update telemetry numbers
-  el.telemetryOccupancy.textContent = state.telemetry.stadiumOccupancy.toLocaleString();
-  el.telemetryGateWait.textContent = `${state.telemetry.avgGateWaitTime}m`;
-  el.telemetryConcessionWait.textContent = `${state.telemetry.avgConcessionWaitTime}m`;
-  el.telemetryEnergy.textContent = `${state.telemetry.greenEnergyUsage}%`;
-  el.telemetryWater.textContent = `${state.telemetry.waterSavedLitres.toLocaleString()} L`;
-  el.telemetryRecycle.textContent = `${state.telemetry.wasteRecyclingRate}%`;
+  try {
+    // Update telemetry numbers
+    el.telemetryOccupancy.textContent = state.telemetry.stadiumOccupancy.toLocaleString();
+    el.telemetryGateWait.textContent = `${state.telemetry.avgGateWaitTime}m`;
+    el.telemetryConcessionWait.textContent = `${state.telemetry.avgConcessionWaitTime}m`;
+    el.telemetryEnergy.textContent = `${state.telemetry.greenEnergyUsage}%`;
+    el.telemetryWater.textContent = `${state.telemetry.waterSavedLitres.toLocaleString()} L`;
+    el.telemetryRecycle.textContent = `${state.telemetry.wasteRecyclingRate}%`;
 
-  // Apply warning highlights on abnormal levels
-  toggleAlertClasses(el.telemetryGateWait.parentElement, state.telemetry.avgGateWaitTime > 30);
-  toggleAlertClasses(el.telemetryConcessionWait.parentElement, state.telemetry.avgConcessionWaitTime > 20);
+    // Apply warning highlights on abnormal levels
+    toggleAlertClasses(el.telemetryGateWait.parentElement, state.telemetry.avgGateWaitTime > 30);
+    toggleAlertClasses(el.telemetryConcessionWait.parentElement, state.telemetry.avgConcessionWaitTime > 20);
 
-  // Render sub-sections using modular renderers
-  renderIncidents(state.incidents, el.incidentsList);
-  renderLogs(state.logs);
+    // Render sub-sections using modular renderers
+    renderIncidents(state.incidents, el.incidentsList);
+    renderLogs(state.logs);
 
-  if (el.volunteerRoster && state.volunteers) {
-    renderVolunteers(state.volunteers, state.zones, el.volunteerRoster, el.volActiveCount);
+    if (el.volunteerRoster && state.volunteers) {
+      renderVolunteers(state.volunteers, state.zones, el.volunteerRoster, el.volActiveCount);
+    }
+
+    updateSVGMapColors(state.zones);
+    renderChat(state.chatHistory, el.chatMessages);
+  } catch (renderError) {
+    console.error('Render cycle error — state may contain unexpected data:', renderError);
   }
-
-  updateSVGMapColors(state.zones);
-  renderChat(state.chatHistory, el.chatMessages);
 }
 
 /**
@@ -394,4 +481,3 @@ function renderLogs(logs) {
   });
 }
 
-// handleChatSubmit is now imported from ui-chat.js — all chat logic is consolidated there

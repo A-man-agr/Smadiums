@@ -66,15 +66,8 @@ export function announceToScreenReader(message) {
   if (!announcer) {
     announcer = document.createElement('div');
     announcer.id = 'sr-announcer';
+    announcer.className = 'sr-only';
     announcer.setAttribute('aria-live', 'assertive');
-    announcer.style.position = 'absolute';
-    announcer.style.width = '1px';
-    announcer.style.height = '1px';
-    announcer.style.padding = '0';
-    announcer.style.margin = '-1px';
-    announcer.style.overflow = 'hidden';
-    announcer.style.clip = 'rect(0, 0, 0, 0)';
-    announcer.style.border = '0';
     document.body.appendChild(announcer);
   }
   announcer.textContent = message;

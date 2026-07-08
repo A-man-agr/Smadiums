@@ -42,7 +42,7 @@ export function renderChat(chat, chatMessages) {
     if (ttsBtn) {
       ttsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        speakTextTextToSpeech(ttsBtn.dataset.text);
+        speakText(ttsBtn.dataset.text);
       });
     }
 
@@ -62,7 +62,7 @@ export function renderChat(chat, chatMessages) {
  * @param {string} text - Raw text to dictate
  * @returns {void}
  */
-export function speakTextTextToSpeech(text) {
+export function speakText(text) {
   if ('speechSynthesis' in window) {
     // Cancel active synthesis
     if (window.speechSynthesis.speaking) {
@@ -194,7 +194,7 @@ export async function handleChatSubmit(e, chatInput, chatMessages) {
     playTone(900, 0.1);
 
     if (getState().settings.soundFeedback) {
-      speakTextTextToSpeech(aiResponse);
+      speakText(aiResponse);
     }
   } catch (err) {
     console.error('Chat error:', err);

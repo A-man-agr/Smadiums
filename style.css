@@ -1730,3 +1730,29 @@ body.theme-high-contrast .send-btn {
   width: 100%;
   z-index: 10000;
 }
+
+/* Screen reader only — visually hidden but announced by assistive technology */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* Inline error message for settings modal validation failures */
+.settings-error-msg {
+  color: var(--color-critical);
+  font-size: 0.85rem;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 0, 110, 0.1);
+  display: none;
+}
+.settings-error-msg.visible {
+  display: block;
+}

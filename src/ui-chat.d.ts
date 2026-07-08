@@ -6,7 +6,7 @@
 import { ChatMessage } from './state';
 
 export function renderChat(chat: ChatMessage[], chatMessages: HTMLElement | null): void;
-export function speakTextTextToSpeech(text: string): void;
+export function speakText(text: string): void;
 export function handleVoiceInput(
   speakInputBtn: HTMLElement,
   chatInput: HTMLInputElement,
