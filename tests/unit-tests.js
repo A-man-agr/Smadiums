@@ -5,6 +5,7 @@
 
 import { escapeHTML, sanitizeAIResponse, detectPromptInjection } from '../src/sanitizer.js';
 import * as stateManager from '../src/state.js';
+import { trapFocus } from '../src/utils.js';
 
 const tests = [];
 
@@ -77,6 +78,7 @@ test('State: Subscription triggers listeners on update', () => {
 test('State: Incident resolution updates status and telemetry', () => {
   // Add a temporary mock incident
   const mockZone = 'gateB';
+  /** @type {Omit<import('../src/state').Incident, "id" | "status" | "timestamp">} */
   const testIncident = {
     zone: mockZone,
     title: 'Scanner Congestion Test',
@@ -134,6 +136,7 @@ test('State: Volunteer status and incident resolution side effects', () => {
   }
 
   // Create an incident in sector300
+  /** @type {Omit<import('../src/state').Incident, "id" | "status" | "timestamp">} */
   const incident = {
     zone: 'sector300',
     title: 'Volunteer Roster Test Incident',
@@ -164,7 +167,7 @@ test('State: Volunteer status and incident resolution side effects', () => {
 test('Sanitizer: Handles null, undefined, or number inputs gracefully', () => {
   if (escapeHTML(null) !== '') throw new Error('escapeHTML(null) must return empty string');
   if (escapeHTML(undefined) !== '') throw new Error('escapeHTML(undefined) must return empty string');
-  if (sanitizeAIResponse(123) !== '') throw new Error('sanitizeAIResponse(number) must return empty string');
+  if (sanitizeAIResponse(/** @type {any} */ (123)) !== '') throw new Error('sanitizeAIResponse(number) must return empty string');
 });
 
 // 4. Hackathon Security & Memory Capping Tests
@@ -206,7 +209,7 @@ test('State: Chat memory capping prevents DOM growth while keeping initial greet
 // 5. High-Fidelity Mock Fallback and Network Error Resiliency
 test('AI Client: Gracefully falls back to offline rules engine during API failures', async () => {
   const isBrowser = typeof window !== 'undefined';
-  const targetObj = isBrowser ? window : global;
+  const targetObj = isBrowser ? window : globalThis;
   const originalFetch = targetObj.fetch;
   
   targetObj.fetch = () => Promise.reject(new Error('Network disconnected'));
@@ -236,6 +239,7 @@ test('Project Structure: Verifies core ES6 code files compile and import success
 
 // 7. Accessibility Settings Storage Verification
 test('State: Settings configuration saves and updates accessible metrics', () => {
+  /** @type {Partial<import('../src/state').Settings>} */
   const customSettings = {
     theme: 'high-contrast',
     textSize: 120,
@@ -311,36 +315,116 @@ test('Efficiency: AI content generation uses caching for duplicate payloads', as
 
 // 10. Modal focus wrapping traps tab key inside popups
 test('Accessibility: Modal focus wrapping traps tab key inside popups', () => {
-  // Mock element structure
-  const mockModal = {
-    listeners: {},
-    addEventListener(event, callback) {
-      this.listeners[event] = callback;
-    },
-    querySelectorAll() {
-      // Mock two focusable inputs
-      return [
-        { id: 'first_el', focus() { mockModal.activeId = 'first_el'; } },
-        { id: 'last_el', focus() { mockModal.activeId = 'last_el'; } }
-      ];
-    },
-    activeId: 'first_el'
-  };
-
-  const isBrowser = typeof window !== 'undefined';
+  const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+  
   if (isBrowser) {
+    // Actual browser DOM testing
     const testContainer = document.createElement('div');
+    testContainer.id = 'test-modal';
+    
     const b1 = document.createElement('button');
+    b1.id = 'first_el';
     const b2 = document.createElement('button');
+    b2.id = 'last_el';
+    
     testContainer.appendChild(b1);
     testContainer.appendChild(b2);
     document.body.appendChild(testContainer);
     
     try {
-      const event = new KeyboardEvent('keydown', { key: 'Tab' });
-      testContainer.dispatchEvent(event);
+      trapFocus(testContainer);
+      
+      // Test 1: Tab press on last element wraps focus to first element
+      b2.focus();
+      let defaultPrevented = false;
+      const tabEvent = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        bubbles: true,
+        cancelable: true
+      });
+      // Spy on preventDefault
+      tabEvent.preventDefault = () => { defaultPrevented = true; };
+      testContainer.dispatchEvent(tabEvent);
+      
+      if (!defaultPrevented || document.activeElement !== b1) {
+        throw new Error('Tab focus wrap failed from last to first element in browser.');
+      }
+      
+      // Test 2: Shift+Tab press on first element wraps focus to last element
+      b1.focus();
+      defaultPrevented = false;
+      const shiftTabEvent = new KeyboardEvent('keydown', {
+        key: 'Tab',
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+      shiftTabEvent.preventDefault = () => { defaultPrevented = true; };
+      testContainer.dispatchEvent(shiftTabEvent);
+      
+      if (!defaultPrevented || document.activeElement !== b2) {
+        throw new Error('Shift+Tab focus wrap failed from first to last element in browser.');
+      }
     } finally {
       testContainer.remove();
+    }
+  } else {
+    // Node environment mock fallback
+    let keydownCallback = null;
+    const mockElements = [
+      { id: 'first_el', focus() { mockModal.activeElement = this; } },
+      { id: 'last_el', focus() { mockModal.activeElement = this; } }
+    ];
+    
+    const mockModal = {
+      addEventListener(event, callback) {
+        if (event === 'keydown') {
+          keydownCallback = callback;
+        }
+      },
+      querySelectorAll() {
+        return mockElements;
+      },
+      activeElement: mockElements[0]
+    };
+
+    const docObj = { activeElement: mockElements[0] };
+    (/** @type {any} */ (globalThis)).document = docObj;
+
+    try {
+      trapFocus(/** @type {any} */ (mockModal));
+
+      if (typeof keydownCallback !== 'function') {
+        throw new Error('trapFocus failed to add a keydown event listener.');
+      }
+
+      // Test 1: Tab press on last element wraps to first element
+      docObj.activeElement = mockElements[1];
+      let defaultPrevented = false;
+      (/** @type {any} */ (keydownCallback))({
+        key: 'Tab',
+        shiftKey: false,
+        preventDefault() { defaultPrevented = true; }
+      });
+
+      if (!defaultPrevented || mockModal.activeElement !== mockElements[0]) {
+        throw new Error('Tab focus wrap failed from last to first element in Node.');
+      }
+
+      // Test 2: Shift+Tab press on first element wraps to last element
+      docObj.activeElement = mockElements[0];
+      defaultPrevented = false;
+      (/** @type {any} */ (keydownCallback))({
+        key: 'Tab',
+        shiftKey: true,
+        preventDefault() { defaultPrevented = true; }
+      });
+
+      if (!defaultPrevented || mockModal.activeElement !== mockElements[1]) {
+        throw new Error('Shift+Tab focus wrap failed from first to last element in Node.');
+      }
+    } finally {
+      delete (/** @type {any} */ (globalThis)).document;
     }
   }
 });
@@ -354,6 +438,7 @@ test('Accessibility: Modal focus wrapping traps tab key inside popups', () => {
  * @returns {Promise<Array<{name: string, status: 'passed' | 'failed', error?: string}>>} Test results
  */
 export async function runAllTests() {
+  /** @type {Array<{name: string, status: 'passed' | 'failed', error?: string}>} */
   const results = [];
   for (let t of tests) {
     try {

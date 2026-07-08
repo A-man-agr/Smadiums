@@ -50,7 +50,7 @@ export function sanitizeAIResponse(str) {
     const bulletPrefix = BULLET_PREFIXES.find(p => trimmed.startsWith(p));
 
     if (bulletPrefix) {
-      const content = applyInlineMarkdown(escapeHTML(trimmed.substring(2)));
+      const content = applyInlineMarkdown(escapeHTML(trimmed.substring(bulletPrefix.length)));
       if (!inList) {
         processedLines.push('<ul>');
         inList = true;
