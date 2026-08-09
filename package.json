@@ -4,6 +4,7 @@
   "description": "FIFA World Cup 2026 Stadium Operations & Fan Experience Hub",
   "type": "module",
   "scripts": {
+    "build": "echo 'Static build ready'",
     "start": "node server.js",
     "test": "node tests/run-tests.js",
     "lint": "eslint src server.js tests"
