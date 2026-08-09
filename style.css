@@ -149,6 +149,20 @@ body {
   gap: 0.75rem;
 }
 
+.header-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 0 12px rgba(6, 214, 160, 0.4);
+  border: 1px solid var(--card-border);
+  transition: transform var(--transition-speed);
+}
+
+.header-logo-icon:hover {
+  transform: scale(1.05);
+}
+
 .fifa-brand-pill {
   background: var(--critical-gradient);
   color: #000;
