@@ -163,6 +163,9 @@ export function initUI() {
 
   // Set up sub-component controllers
   setupCarbonCalculator(el.calcModeSelect, el.ecoSavedVal, announceToScreenReader);
+  if (el.navFromSelect && el.navToSelect && el.navRouteOutput) {
+    calculateWayfindingRoute(getState(), el.navFromSelect.value, el.navToSelect.value, el.navRouteOutput, announceToScreenReader);
+  }
 }
 
 // ---------------------------------------------------------------------------

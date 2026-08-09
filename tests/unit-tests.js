@@ -424,7 +424,9 @@ test('Accessibility: Modal focus wrapping traps tab key inside popups', () => {
         throw new Error('Shift+Tab focus wrap failed from first to last element in Node.');
       }
     } finally {
-      delete (/** @type {any} */ (globalThis)).document;
+      if (!isBrowser) {
+        delete (/** @type {any} */ (globalThis)).document;
+      }
     }
   }
 });
